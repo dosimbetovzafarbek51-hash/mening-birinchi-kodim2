@@ -23,11 +23,12 @@ YDL_OPTS = {
 def clean_url(url: str) -> str:
     """Instagram linklaridagi ortiqcha parchalarni tozalash"""
     if "instagram.com" in url:
-        match = re.search(r'(https?:\/\/www\.instagram\.com\/(?:p|reel|tv)\/[^\/\?]+)', url)
+        match = re.search(r'(https?://www\.instagram\.com/(?:p|reel|tv)/[^/?\s]+)', url)
         if match:
             return match.group(1)
     return url
 
+# === START BUYRUG'I ===
 @dp.message(Command("start"))
 async def start_cmd(message: types.Message):
     kb = types.ReplyKeyboardMarkup(
@@ -45,7 +46,7 @@ async def start_cmd(message: types.Message):
         reply_markup=kb
     )
 
-# Qayta ishga tushirish tugmasi uchun aniq filtr
+# === TUGMANI ISHLATADIGAN ASOSIY QISM (KAFOLATLANGAN) ===
 @dp.message(F.text == "🔄 Botni qayta ishga tushirish")
 async def restart_btn(message: types.Message):
     await start_cmd(message)
@@ -54,7 +55,7 @@ async def restart_btn(message: types.Message):
 @dp.message(lambda msg: any(x in msg.text for x in ["instagram.com", "youtube.com", "youtu.be"]) if msg.text else False)
 async def handle_media(message: types.Message):
     url = clean_url(message.text)
-    status_msg = await message.answer("⏳ `So'rov qabul qilindi. Media yuklanmoqda...`", parse_mode="Markdown")
+    status_msg = await message.answer("⏳ `So'rov qabul kijindi. Media yuklanmoqda...`", parse_mode="Markdown")
     
     out_filename = f"file_{message.from_user.id}.mp4"
     opts = {**YDL_OPTS, 'outtmpl': out_filename}
@@ -89,10 +90,9 @@ async def handle_media(message: types.Message):
         except:
             pass
 
-# Audioni ajratib olib yuborish (Siz so'ragan MP3 formati)
+# Audioni ajratib olib yuborish
 @dp.callback_query(F.data == "get_audio")
 async def handle_audio(callback: types.CallbackQuery):
-    # Caption ichidan linkni qayta ajratib olamiz
     caption = callback.message.caption or ""
     links = re.findall(r'(https?://[^\s]+)', caption)
     
@@ -120,16 +120,15 @@ async def handle_audio(callback: types.CallbackQuery):
                 parse_mode="Markdown"
             )
             os.remove(audio_filename)
-        else:
-            raise Exception("Audio fayl topilmadi")
     except Exception as e:
         print(f"Audio xatosi: {e}")
         await callback.message.answer("❌ **Kechirasiz, audioni ajratib olishda xatolik bo'ldi.**", parse_mode="Markdown")
 
-# Noto'g'ri matn yuborilganda
+# Noto'g'ri matn yuborilganda (TUGMA ENDI BU YERDA TO'XTAB QOLMAYDI)
 @dp.message()
 async def text_fallback(message: types.Message):
     if message.text == "🔄 Botni qayta ishga tushirish":
+        await start_cmd(message)
         return
     await message.answer("⚠️ **Iltimos, faqat to'g'ri Instagram yoki YouTube havolasini yuboring!**")
 
