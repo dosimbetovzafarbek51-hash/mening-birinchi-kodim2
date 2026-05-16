@@ -46,8 +46,8 @@ async def main_handler(message: types.Message):
     url = message.text
     msg = await message.answer("Video yuklanmoqda... ⏳")
     
-    # Fayl nomini xavfsiz qilish uchun faqat foydalanuvchi ID sidan foydalanamiz
-    file_name = f"v_{message.from_user.id}.mp4"
+    # Videofayl nomi aniq faqat bitta kengaytmada bo'ladi
+    file_name = f"video_{message.from_user.id}.mp4"
 
     video_opts = {
         **YDL_OPTS,
@@ -71,8 +71,7 @@ async def main_handler(message: types.Message):
                 caption=f"Tayyor! ✅\n🔗 Havola: {url}", 
                 reply_markup=builder
             )
-            # Diqqat: Videoni o'chirmaymiz, chunki foydalanuvchi audio tugmasini bossa, shu fayldan foydalanamiz!
-    except Exception as e:
+    except Exception:
         await message.answer("❌ Video yuklashda xatolik yuz berdi. Link noto'g'ri yoki video juda katta bo'lishi mumkin.")
     finally:
         try:
@@ -91,46 +90,41 @@ async def audio_handler(callback: types.CallbackQuery):
     url = links[0]
     await callback.answer("Musiqa tayyorlanmoqda... 🎶")
     
-    video_file = f"v_{callback.from_user.id}.mp4"
-    audio_file = f"a_{callback.from_user.id}.mp3"
+    video_file = f"video_{callback.from_user.id}.mp4"
+    audio_base = f"audio_{callback.from_user.id}"
     
-    # 1-REJA: Agar yuklangan video serverda turgan bo'lsa, uni to'g'ridan-to'g'ri audio qilib yuborish (YouTube uchun eng xavfsiz yo'l)
+    # 1-REJA: Agar serverda hozirgina yuklangan video fayl bo'lsa (YouTube uchun eng xavfsiz va toza yo'l)
     if os.path.exists(video_file):
         try:
+            # Faylni foydalanuvchiga audio pleer shaklida chiroyli sarlavha bilan yuboramiz
             await callback.message.answer_audio(
-                types.FSInputFile(video_file),
+                types.FSInputFile(video_file, filename="music.mp3"),
                 caption="Marhamat, musiqaning varianti! 🎵"
             )
             try:
-                os.remove(video_file)
+                os.remove(video_file) # Ishlatib bo'lingach serverni tozalaymiz
             except:
                 pass
             return
         except Exception:
             pass
 
-    # 2-REJA: Agar video fayl o'chib ketgan bo'lsa, audio formatida qayta yuklash (Instagram uchun)
+    # 2-REJA: Agar video fayl o'chib ketgan bo'lsa (Zaxira tizimi)
     audio_opts = {
         **YDL_OPTS,
         'format': 'bestaudio/best',
-        'outtmpl': audio_file,
+        'outtmpl': f"{audio_base}.%(ext)s", # Kengaytmani yt-dlp o'zi mustaqil toza qo'yadi
     }
     
     try:
         with yt_dlp.YoutubeDL(audio_opts) as ydl:
-            ydl.download([url])
-        
-        actual_file = audio_file
-        if not os.path.exists(actual_file):
-            for ext in ['.m4a', '.webm', '.aac', '.mp4']:
-                possible_file = audio_file.replace('.mp3', ext)
-                if os.path.exists(possible_file):
-                    actual_file = possible_file
-                    break
+            info = ydl.extract_info(url, download=True)
+            ext = info.get('ext', 'mp3')
+            actual_file = f"{audio_base}.{ext}"
 
         if os.path.exists(actual_file):
             await callback.message.answer_audio(
-                types.FSInputFile(actual_file), 
+                types.FSInputFile(actual_file, filename=f"music.{ext}"), 
                 caption="Marhamat, musiqaning varianti! 🎵"
             )
             try:
