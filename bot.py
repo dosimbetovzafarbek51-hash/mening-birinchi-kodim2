@@ -1,7 +1,7 @@
 import asyncio
 import os
 import re
-import yt_dlp
+import aiohttp
 from aiogram import Bot, Dispatcher, types, F
 from aiogram.filters import Command
 
@@ -10,29 +10,11 @@ TOKEN = os.getenv("BOT_TOKEN")
 bot = Bot(token=TOKEN)
 dp = Dispatcher()
 
-# yt-dlp uchun maxsus bypass va xavfsizlik sozlamalari
-YDL_OPTS = {
-    'quiet': True,
-    'no_warnings': True,
-    'nocheckcertificate': True,
-    'geo_bypass': True,
-    'user_agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36',
-    'http_headers': {
-        'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,image/webp,image/apng,*/*;q=0.8',
-        'Accept-Language': 'en-US,en;q=0.9',
-    }
-}
-
-def clean_url(url: str) -> str:
-    """Pleylist, radio va ortiqcha parametrlarni havoladan tozalash"""
-    if "youtube.com" in url or "youtu.be" in url:
-        video_id_match = re.search(r'(?:v=|\/v\/|embed\/|youtu\.be\/|shorts\/)([^"&?\/ ]{11})', url)
-        if video_id_match:
-            return f"https://www.youtube.com/watch?v={video_id_match.group(1)}"
-    elif "instagram.com" in url:
-        clean_insta = re.search(r'(https?:\/\/www\.instagram\.com\/(?:p|reel|tv)\/[^\/\?]+)', url)
-        if clean_insta:
-            return clean_insta.group(1)
+def clean_youtube_url(url: str) -> str:
+    """Murakkab pleylist va radio havolalarini toza video havolasiga o'tkazish"""
+    video_id_match = re.search(r'(?:v=|\/v\/|embed\/|youtu\.be\/|shorts\/)([^"&?\/ ]{11})', url)
+    if video_id_match:
+        return f"https://www.youtube.com/watch?v={video_id_match.group(1)}"
     return url
 
 @dp.message(Command("start"))
@@ -53,42 +35,59 @@ async def start(message: types.Message):
 async def restart_button_handler(message: types.Message):
     await start(message)
 
-# 1. TO'G'RI HAVOLA KELGANDA ISHLAYDIGAN QISM
+# 1. HAVOLA KELGANDA ISHLAYDIGAN ASOSIY QISM
 @dp.message(F.text.startswith("http"))
 async def main_handler(message: types.Message):
     raw_url = message.text
     msg = await message.answer("Video yuklanmoqda... ⏳")
     
-    url = clean_url(raw_url)
-    file_name = f"v_{message.from_user.id}.mp4"
+    # Havolani tozalash (Pleylist yoki radio parametrlarini olib tashlash)
+    url = clean_youtube_url(raw_url)
+
+    # 1-URINISH: PREMIUM YOUTUBE/INSTAGRAM BYPASS API
+    api_url = "https://api.savetube.me/download"
+    payload = {"url": url, "quality": "720"}
     
-    video_opts = {
-        **YDL_OPTS,
-        'format': 'best[ext=mp4]/best',
-        'outtmpl': file_name,
-        'max_filesize': 48 * 1024 * 1024
-    }
-
     try:
-        with yt_dlp.YoutubeDL(video_opts) as ydl:
-            ydl.download([url])
-        
-        builder = types.InlineKeyboardMarkup(inline_keyboard=[
-            [types.InlineKeyboardButton(text="🎵 Musiqasini yuklab olish", callback_data="find_full")]
-        ])
+        async with aiohttp.ClientSession() as session:
+            async with session.post(api_url, json=payload, timeout=30) as response:
+                if response.status == 200:
+                    data = await response.json()
+                    if data.get("status") == "success" and data.get("data"):
+                        video_link = data["data"].get("video_url") or data["data"].get("url")
+                        
+                        if video_link:
+                            builder = types.InlineKeyboardMarkup(inline_keyboard=[
+                                [types.InlineKeyboardButton(text="🎵 Musiqasini yuklab olish", callback_data="find_full")]
+                            ])
+                            await message.answer_video(
+                                video_link,
+                                caption=f"Tayyor! ✅\n🔗 Havola: {url}",
+                                reply_markup=builder
+                            )
+                            await msg.delete()
+                            return
 
-        if os.path.exists(file_name):
-            await message.answer_video(
-                types.FSInputFile(file_name), 
-                caption=f"Tayyor! ✅\n🔗 Havola: {url}", 
-                reply_markup=builder
-            )
-            os.remove(file_name)
-            await msg.delete()
-            return
-        else:
-            raise Exception("Fayl yuklanmadi")
+        # 2-URINISH: ZAXIRA SHLYUZI (AGAR ASOSIY TARMOQ BAND BO'LSA)
+        backup_url = f"https://api.vveb.dev/download?url={url}"
+        async with aiohttp.ClientSession() as session:
+            async with session.get(backup_url, timeout=20) as response:
+                if response.status == 200:
+                    data = await response.json()
+                    v_link = data.get("url") or data.get("download_url") or data.get("result")
+                    if v_link:
+                        builder = types.InlineKeyboardMarkup(inline_keyboard=[
+                            [types.InlineKeyboardButton(text="🎵 Musiqasini yuklab olish", callback_data="find_full")]
+                        ])
+                        await message.answer_video(
+                            v_link,
+                            caption=f"Tayyor! ✅\n🔗 Havola: {url}",
+                            reply_markup=builder
+                        )
+                        await msg.delete()
+                        return
 
+        await message.answer("❌ Video yuklashda xatolik yuz berdi. Link noto'g'ri yoki video juda katta bo'lishi mumkin.")
     except Exception:
         await message.answer("❌ Video yuklashda xatolik yuz berdi. Link noto'g'ri yoki video juda katta bo'lishi mumkin.")
     finally:
@@ -102,7 +101,7 @@ async def main_handler(message: types.Message):
 async def text_handler(message: types.Message):
     await message.answer("⚠️ Iltimos, YouTube yoki Instagram havolasini (linkini) yuboring!")
 
-# 3. INTERAKTIV AUDIO TUGMASI
+# 3. INTERAKTIV AUDIO TUGMASI (NOMIDAGI XATOLIK TO'G'RILANDI)
 @dp.callback_query(F.data == "find_full")
 async def audio_handler(callback: types.CallbackQuery):
     caption = callback.message.caption
@@ -111,28 +110,43 @@ async def audio_handler(callback: types.CallbackQuery):
         await callback.answer("Link topilmadi!", show_alert=True)
         return
 
-    url = clean_url(links[0])
+    url = clean_youtube_url(links[0])
     await callback.answer("Musiqa tayyorlanmoqda... 🎶")
     
-    audio_name = f"a_{callback.from_user.id}.mp3"
-    audio_opts = {
-        **YDL_OPTS,
-        'format': 'bestaudio/best',
-        'outtmpl': audio_name,
-    }
-
+    api_url = "https://api.savetube.me/download"
+    payload = {"url": url, "quality": "audio"}
+    
     try:
-        with yt_dlp.YoutubeDL(audio_opts) as ydl:
-            ydl.download([url])
-            
-        if os.path.exists(audio_name):
-            await callback.message.answer_audio(
-                types.FSInputFile(audio_name),
-                filename="music.mp3",
-                caption="Marhamat, musiqaning varianti! 🎵"
-            )
-            os.remove(audio_name)
-            return
+        async with aiohttp.ClientSession() as session:
+            async with session.post(api_url, json=payload, timeout=30) as response:
+                if response.status == 200:
+                    data = await response.json()
+                    if data.get("status") == "success" and data.get("data"):
+                        audio_link = data["data"].get("audio_url") or data["data"].get("url")
+                        if audio_link:
+                            await callback.message.answer_audio(
+                                audio_link,
+                                filename="music.mp3",
+                                caption="Marhamat, musiqaning varianti! 🎵"
+                            )
+                            return
+
+        # Audio uchun muqobil zaxira tarmoq
+        backup_audio_url = f"https://api.vveb.dev/download?url={url}&audio=true"
+        async with aiohttp.ClientSession() as session:
+            async with session.get(backup_audio_url, timeout=20) as response:
+                if response.status == 200:
+                    data = await response.json()
+                    a_link = data.get("audio_url") or data.get("url") or data.get("result")
+                    if a_link:
+                        await callback.message.answer_audio(
+                            a_link,
+                            filename="music.mp3",
+                            caption="Marhamat, musiqaning varianti! 🎵"
+                        )
+                        return
+                        
+        await callback.message.answer("❌ Afsuski, musiqani yuklab bo'lmadi.")
     except Exception:
         await callback.message.answer("❌ Musiqa yuklashda xatolik yuz berdi.")
 
