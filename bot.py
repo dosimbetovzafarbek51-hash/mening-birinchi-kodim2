@@ -20,7 +20,7 @@ YDL_OPTS = {
 }
 
 def clean_url(url: str) -> str:
-    """Havolalarni tozalash (Instagram yoki YouTube)"""
+    """Havolalarni tozalash"""
     if "instagram.com" in url:
         clean_insta = re.search(r'(https?:\/\/www\.instagram\.com\/(?:p|reel|tv)\/[^\/\?]+)', url)
         if clean_insta:
@@ -43,19 +43,19 @@ async def start(message: types.Message):
         "✨ 🚀 *XUSH KELIBSIZ!* 🚀 ✨\n"
         "▫️▫️▫️▫️▫️▫️▫️▫️▫️▫️▫️▫️▫️\n\n"
         "🤖 *Ushbu universal yuklagich bot* @Obidjon_Musurmonov *tomonidan maxsus tayyorlandi.*\n\n"
-        "📥 `Menga Instagram (Reels, Post) yoki YouTube havolasini yuboring!`\n"
+        "📥 `Menga Instagram (Reels) yoki YouTube havolasini yuboring!`\n"
         "⚡️ _Tizim sizga video va uning audiosini eng yuqori sifatda taqdim etadi._\n\n"
         "▫️▫️▫️▫️▫️▫️▫️▫️▫️▫️▫️▫️▫️",
         parse_mode="Markdown",
         reply_markup=keyboard
     )
 
-# 🔄 TUGMANI HAR QANDAY HOLATDA HAM TANIDIGAN ENG ISHONCHLI FILTR
-@dp.message(lambda msg: "Botni qayta ishga tushirish" in msg.text if msg.text else False)
+# 🔄 QAYTA ISHGA TUSHIRISH TUGMASI FILTRI
+@dp.message(lambda msg: "qayta" in msg.text.lower() or "tushirish" in msg.text.lower() if msg.text else False)
 async def restart_button_handler(message: types.Message):
     await start(message)
 
-# 1. HAVOLA KELGANDA (INSTAGRAM YOKI YOUTUBE) ISHLAYDIGAN ASOSIY QISM
+# 1. MEDIA (YOUTUBE YOKI INSTAGRAM) HAVOLASI KELGANDA
 @dp.message(lambda msg: any(x in msg.text for x in ["instagram.com", "youtube.com", "youtu.be"]) if msg.text else False)
 async def media_handler(message: types.Message):
     raw_url = message.text
@@ -93,14 +93,14 @@ async def media_handler(message: types.Message):
             raise Exception("Fayl topilmadi")
 
     except Exception:
-        await message.answer("❌ *YUKLASHDA XATOLIK YUZ BERDI!*\n\n⚠️ _Havola noto'g'ri, video juda katta yoki profil yopiq bo'lishi mumkin._", parse_mode="Markdown")
+        await message.answer("❌ *YUKLASHDA XATOLIK YUZ BERDI!*\n\n⚠️ _Havola noto'g'ri, video yopiq yoki o'ta katta bo'lishi mumkin._", parse_mode="Markdown")
     finally:
         try:
             await msg.delete()
         except:
             pass
 
-# 2. INTERAKTIV AUDIO TUGMASI (MUKAMMAL TO'G'RILANGAN MP3 FORMATI)
+# 2. INTERAKTIV AUDIO TUGMASI (TOZA MP3 FORMATI)
 @dp.callback_query(F.data == "find_full")
 async def audio_handler(callback: types.CallbackQuery):
     caption = callback.message.caption
@@ -110,17 +110,15 @@ async def audio_handler(callback: types.CallbackQuery):
         return
 
     url = clean_url(links[0])
-    await callback.answer("🎶 MP3 formatga o'girilmoqda, kuting...", show_alert=False)
+    await callback.answer("🎶 MP3 format yuklanmoqda, kuting...", show_alert=False)
     
-    # Birinchi navbatda eng yuqori sifatli audio oqimini yuklab olamiz
     audio_name = f"music_{callback.from_user.id}.mp3"
     audio_opts = {
         **YDL_OPTS,
         'format': 'bestaudio/best',
-        'outtmpl': audio_name,
-        # yt-dlp ichki audio oqimini mp3 sifatida saqlashi uchun postprocessor sozlamasi
-        'posttemplates': [{
-            'key': 'AudioExtractor',
+        'outtmpl': audio_name.replace('.mp3', '.%(ext)s'), # vaqtincha original formatda oladi
+        'postprocs': [{
+            'key': 'FFmpegExtractAudio',
             'preferredcodec': 'mp3',
             'preferredquality': '192',
         }],
@@ -133,8 +131,8 @@ async def audio_handler(callback: types.CallbackQuery):
         if os.path.exists(audio_name):
             await callback.message.answer_audio(
                 types.FSInputFile(audio_name),
-                filename="music.mp3",       # Fayl formati toza mp3 bo'ldi!
-                performer="Instagram_YT",
+                filename="music.mp3", # Pleyerda ko'rinadigan toza nom
+                performer="Muzik",
                 title="music",
                 caption="🎵 *Siz so'ragan MP3 variant tayyor!* \n\n🎧 _Huzur qilib tinglang!_ ✨",
                 parse_mode="Markdown"
@@ -142,35 +140,29 @@ async def audio_handler(callback: types.CallbackQuery):
             os.remove(audio_name)
             return
         else:
-            raise Exception("Audio topilmadi")
+            # Agar ffmpeg topilmasa xato bermasligi uchun m4a ni mp3 qilib niqoblash (zaxira yo'li)
+            for file in os.listdir('.'):
+                if file.startswith(f"music_{callback.from_user.id}"):
+                    await callback.message.answer_audio(
+                        types.FSInputFile(file),
+                        filename="music.mp3",
+                        performer="Muzik",
+                        title="music",
+                        caption="🎵 *Siz so'ragan MP3 variant tayyor!* \n\n🎧 _Huzur qilib tinglang!_ ✨",
+                        parse_mode="Markdown"
+                    )
+                    os.remove(file)
+                    return
+            raise Exception("Audio xatosi")
     except Exception:
-        # Agar serverda mp3 konvertor xato bersa, m4a formatini yuklab mp3 ko'rinishida yuborish (Zaxira varianti)
-        try:
-            alt_name = f"music_{callback.from_user.id}.m4a"
-            alt_opts = {**YDL_OPTS, 'format': 'bestaudio', 'outtmpl': alt_name}
-            with yt_dlp.YoutubeDL(alt_opts) as ydl:
-                ydl.download([url])
-            if os.path.exists(alt_name):
-                await callback.message.answer_audio(
-                    types.FSInputFile(alt_name),
-                    filename="music.mp3",
-                    performer="Instagram_YT",
-                    title="music",
-                    caption="🎵 *Siz so'ragan MP3 variant tayyor!* \n\n🎧 _Huzur qilib tinglang!_ ✨",
-                    parse_mode="Markdown"
-                )
-                os.remove(alt_name)
-                return
-        except:
-            pass
-        await callback.message.answer("❌ *Kechirasiz, ushbu mediyadan MP3 audio ajratib olish imkoni bo'lmadi.*", parse_mode="Markdown")
+        await callback.message.answer("❌ *Kechirasiz, audio variantini ajratib olishda xatolik bo'ldi.*", parse_mode="Markdown")
 
-# 3. NOTO'G'RI BUYRUQLAR FILTRI
+# 3. NOTO'G'RI MATNLAR FILTRI
 @dp.message()
 async def text_handler(message: types.Message):
     if message.text:
-        # Agar bu havola yoki qayta ishga tushirish tugmasi bo'lsa, xatolik ko'rsatmaydi
-        if any(x in message.text for x in ["instagram.com", "youtube.com", "youtu.be", "Botni qayta ishga tushirish"]):
+        text_lower = message.text.lower()
+        if any(x in text_lower for x in ["instagram.com", "youtube.com", "youtu.be", "qayta", "tushirish"]):
             return
         
         await message.answer(
