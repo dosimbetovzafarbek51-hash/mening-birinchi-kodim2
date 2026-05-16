@@ -10,7 +10,7 @@ TOKEN = os.getenv("BOT_TOKEN")
 bot = Bot(token=TOKEN)
 dp = Dispatcher()
 
-# Railway serveri uchun barqaror va eng xavfsiz umumiy sozlamalar
+# Railway serveri uchun eng xavfsiz va barqaror sozlamalar
 YDL_OPTS = {
     'quiet': True,
     'no_warnings': True,
@@ -21,20 +21,35 @@ YDL_OPTS = {
 
 @dp.message(Command("start"))
 async def start(message: types.Message):
+    # Bot tagida doimiy turadigan "🔄 Botni qayta ishga tushirish" tugmasi
+    keyboard = types.ReplyKeyboardMarkup(
+        keyboard=[
+            [types.KeyboardButton(text="🔄 Botni qayta ishga tushirish")]
+        ],
+        resize_keyboard=True # Tugmani ixcham va chiroyli o'lchamga keltirish
+    )
+
     await message.answer(
         "✅ **Assalomu alaykum!**\n"
         "Bu bot @Obidjon_Musurmonov tomonidan yaratildi!\n"
         "YouTube yoki Instagram linkini yuboring.\n"
-        "Men sizga video va uning audiosini yuklab beraman."
+        "Men sizga video va uning audiosini yuklab beraman.",
+        reply_markup=keyboard # Tugmalarni matnga biriktirib yuboramiz
     )
+
+# Agar foydalanuvchi pastdagi tugmani bossa, unga xuddi /start bosgandek javob beradi
+@dp.message(F.text == "🔄 Botni qayta ishga tushirish")
+async def restart_button_handler(message: types.Message):
+    await start(message)
 
 @dp.message(F.text.startswith("http"))
 async def main_handler(message: types.Message):
     url = message.text
     msg = await message.answer("Video yuklanmoqda... ⏳")
-    file_name = f"v_{message.from_user.id}.mp4"
+    
+    # Fayl nomini unikal qilish
+    file_name = f"v_{message.from_user.id}_{message.message_id}.mp4"
 
-    # Eng barqaror format kombinatsiyasi
     video_opts = {
         **YDL_OPTS,
         'format': 'ext=mp4/best',
@@ -46,7 +61,7 @@ async def main_handler(message: types.Message):
         with yt_dlp.YoutubeDL(video_opts) as ydl:
             ydl.download([url])
         
-        # Tugma yaratish
+        # Video tagidagi inline tugma
         builder = types.InlineKeyboardMarkup(inline_keyboard=[
             [types.InlineKeyboardButton(text="🎵 Musiqasini yuklab olish", callback_data="find_full")]
         ])
@@ -57,7 +72,10 @@ async def main_handler(message: types.Message):
                 caption=f"Tayyor! ✅\n🔗 Havola: {url}", 
                 reply_markup=builder
             )
-            # Diqqat: Videoni o'chirmaymiz, chunki foydalanuvchi musiqa tugmasini bossa, shu fayldan foydalanamiz!
+            try:
+                os.remove(file_name)
+            except:
+                pass
     except Exception as e:
         await message.answer("❌ Video yuklashda xatolik yuz berdi. Link noto'g'ri yoki video juda katta bo'lishi mumkin.")
     finally:
@@ -77,22 +95,7 @@ async def audio_handler(callback: types.CallbackQuery):
     url = links[0]
     await callback.answer("Musiqa tayyorlanmoqda... 🎶")
     
-    # 1-REJA: Videoning o'zini audio qilib yuborish (Eng tezkor va 100% xatosiz yo'l!)
-    video_file = f"v_{callback.from_user.id}.mp4"
-    
-    if os.path.exists(video_file):
-        try:
-            await callback.message.answer_audio(
-                types.FSInputFile(video_file),
-                caption="Marhamat, musiqaning varianti! 🎵"
-            )
-            os.remove(video_file) # Ishlatib bo'lingach, faylni o'chiramiz
-            return
-        except Exception:
-            pass
-
-    # 2-REJA: Agar video fayl biron sabab bilan o'chib ketgan bo'lsa, qayta yuklash
-    audio_file = f"a_{callback.from_user.id}.mp3"
+    audio_file = f"a_{callback.from_user.id}_{callback.message.message_id}.mp3"
     audio_opts = {
         **YDL_OPTS,
         'format': 'bestaudio/best',
@@ -116,11 +119,14 @@ async def audio_handler(callback: types.CallbackQuery):
                 types.FSInputFile(actual_file), 
                 caption="Marhamat, musiqaning varianti! 🎵"
             )
-            os.remove(actual_file)
+            try:
+                os.remove(actual_file)
+            except:
+                pass
         else:
             await callback.message.answer("❌ Afsuski, musiqani yuklab bo'lmadi.")
     except Exception:
-        await callback.message.answer("❌ Musiqa yuklashda xatolik yuz berdi.")
+        await callback.message.answer("❌ Musiqa yuklashda xatolik yuz berdi. Bir ozdan keyin qayta urinib ko'ring.")
 
 async def main():
     await dp.start_polling(bot)
