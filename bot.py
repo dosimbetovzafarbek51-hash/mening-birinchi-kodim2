@@ -11,7 +11,7 @@ bot = Bot(token=TOKEN)
 dp = Dispatcher()
 
 def clean_youtube_url(url: str) -> str:
-    """Murakkab pleylist va radio havolalarini toza video havolasiga o'tkazish"""
+    """Murakkab pleylist va radio havolalarini faqat toza video havolasiga o'tkazish"""
     video_id_match = re.search(r'(?:v=|\/v\/|embed\/|youtu\.be\/|shorts\/)([^"&?\/ ]{11})', url)
     if video_id_match:
         return f"https://www.youtube.com/watch?v={video_id_match.group(1)}"
@@ -19,6 +19,7 @@ def clean_youtube_url(url: str) -> str:
 
 @dp.message(Command("start"))
 async def start(message: types.Message):
+    # Bot ostidagi doimiy tugma
     keyboard = types.ReplyKeyboardMarkup(
         keyboard=[[types.KeyboardButton(text="🔄 Botni qayta ishga tushirish")]],
         resize_keyboard=True
@@ -35,16 +36,16 @@ async def start(message: types.Message):
 async def restart_button_handler(message: types.Message):
     await start(message)
 
-# 1. HAVOLA KELGANDA ISHLAYDIGAN ASOSIY QISM
+# 1. TO'G'RI HAVOLA KELGANDA ISHLAYDIGAN ASOSIY QISM
 @dp.message(F.text.startswith("http"))
 async def main_handler(message: types.Message):
     raw_url = message.text
     msg = await message.answer("Video yuklanmoqda... ⏳")
     
-    # Havolani tozalash (Pleylist yoki radio parametrlarini olib tashlash)
+    # Havolani tozalash (Pleylist va ortiqcha parametrlarni qirqish)
     url = clean_youtube_url(raw_url)
 
-    # PREMIUM YOUTUBE/INSTAGRAM API SHLYUZI
+    # Eng yuqori barqarorlikka ega bypass API tarmog'i
     api_url = "https://api.savetube.me/download"
     payload = {"url": url, "quality": "720"}
     
@@ -68,7 +69,7 @@ async def main_handler(message: types.Message):
                             await msg.delete()
                             return
 
-        # 2-URINISH: UNIVERSAL ZAXIRA SHLYUZI
+        # ZAXIRA REJASI: Agar asosiy bypass liniyasi band bo'lsa
         backup_url = f"https://api.vveb.dev/download?url={url}"
         async with aiohttp.ClientSession() as session:
             async with session.get(backup_url, timeout=20) as response:
@@ -96,12 +97,12 @@ async def main_handler(message: types.Message):
         except:
             pass
 
-# 2. ODDIY SO'Z YOKI MATN YOZILGANDA OGOHLANTIRISH QISMI
+# 2. ODDIY MATN YOKI SO'Z YOZILGANDA OGOHLANTIRISH QISMI
 @dp.message(F.text)
 async def text_handler(message: types.Message):
     await message.answer("⚠️ Iltimos, YouTube yoki Instagram havolasini (linkini) yuboring!")
 
-# 3. MUSIQASINI AJRATIB OLISH TUGMASI
+# 3. INTERAKTIV AUDIO TUGMASI BOSILGANDA
 @dp.callback_query(F.data == "find_full")
 async def audio_handler(callback: types.CallbackQuery):
     caption = callback.message.caption
@@ -131,7 +132,7 @@ async def audio_handler(callback: types.CallbackQuery):
                             )
                             return
 
-        # Audio uchun zaxira shlyuzi
+        # Audioni yuklash uchun muqobil tarmoq
         backup_audio_url = f"https://api.vveb.dev/download?url={url}&audio=true"
         async with aiohttp.ClientSession() as session:
             async with session.get(backup_audio_url, timeout=20) as response:
