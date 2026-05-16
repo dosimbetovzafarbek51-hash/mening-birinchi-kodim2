@@ -10,7 +10,7 @@ TOKEN = os.getenv("BOT_TOKEN")
 bot = Bot(token=TOKEN)
 dp = Dispatcher()
 
-# Instagram yuklash sozlamalari (Bypass qilingan holatda)
+# Instagram yuklash sozlamalari
 YDL_OPTS = {
     'quiet': True,
     'no_warnings': True,
@@ -28,25 +28,25 @@ def clean_instagram_url(url: str) -> str:
 
 @dp.message(Command("start"))
 async def start(message: types.Message):
-    # Chiroyli pastki tugma dizayni
+    # Katta harflar va chiroyli emoji bilan boshqaruv tugmasi
     keyboard = types.ReplyKeyboardMarkup(
         keyboard=[[types.KeyboardButton(text="🔄 BOTNI QAYTA ISHGA TUSHIRISH")]],
         resize_keyboard=True
     )
     
-    # Start bosilganda chiroyli kutib olish stikeri yuboriladi
+    # 🌟 Foydalanuvchini chiroyli kutib olish stikeri (Animatsiyali sovg'a stikeri)
     try:
-        await message.answer_sticker("CAACAgIAAxkBAAElskZmE1_n7... (Yoki istalgan stiker IDsi)")
+        await message.answer_sticker("CAACAgIAAxkBAAENWpZmGj7l8pZ_u10K7D5vM9zAAUY37AACBwADwDZPE_Yv929zS3vXNAQ")
     except:
         pass
 
     await message.answer(
-        "✨ ▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬ ✨\n"
-        "👋  `Assalomu alaykum, aziz foydalanuvchi!`\n\n"
-        "🤖  *Ushbu mukammal yuklagich bot* @Obidjon_Musurmonov *tomonidan maxsus tayyorlandi.*\n\n"
-        "📥  `Menga faqat Instagram (Reels, Post, TV) havolasini yuboring!`\n"
-        "⚡️  *Men sizga video va uning audiosini eng yuqori sifatda taqdim etaman.*\n"
-        "✨ ▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬ ✨",
+        "✨ 🚀 *XUSH KELIBSIZ!* 🚀 ✨\n"
+        "▫️▫️▫️▫️▫️▫️▫️▫️▫️▫️▫️▫️▫️\n\n"
+        "🤖 *Ushbu mukammal va tezkor yuklagich bot* @Obidjon_Musurmonov *tomonidan maxsus tayyorlandi.*\n\n"
+        "📥 `Menga faqat Instagram (Reels, Post, TV) havolasini yuboring!`\n"
+        "⚡️ _Tizim sizga video va uning audiosini eng yuqori sifatda taqdim etadi._\n\n"
+        "▫️▫️▫️▫️▫️▫️▫️▫️▫️▫️▫️▫️▫️",
         parse_mode="Markdown",
         reply_markup=keyboard
     )
@@ -59,7 +59,7 @@ async def restart_button_handler(message: types.Message):
 @dp.message(F.text.contains("instagram.com"))
 async def instagram_handler(message: types.Message):
     raw_url = message.text
-    msg = await message.answer("🛸 `Tizim ulanmoqda... Video yuklanmoqda...` ⏳", parse_mode="Markdown")
+    msg = await message.answer("🛸 ⏳ `Tizim ulanmoqda... Video yuklanmoqda...` 💾", parse_mode="Markdown")
     
     url = clean_instagram_url(raw_url)
     file_name = f"insta_{message.from_user.id}.mp4"
@@ -75,15 +75,15 @@ async def instagram_handler(message: types.Message):
         with yt_dlp.YoutubeDL(video_opts) as ydl:
             ydl.download([url])
         
-        # Tugma ko'rinishiga emojilar bilan chiroy berildi
+        # Tugmaga yorqin va jalb qiluvchi emojilar qo'shildi
         builder = types.InlineKeyboardMarkup(inline_keyboard=[
-            [types.InlineKeyboardButton(text="🎵 ⏬ MUSIQASINI YUKLAB OLISH ⏬ 🎵", callback_data="find_full")]
+            [types.InlineKeyboardButton(text="🎵 🔥 MUSIQASINI YUKLAB OLISH 🔥 🎵", callback_data="find_full")]
         ])
 
         if os.path.exists(file_name):
             await message.answer_video(
                 types.FSInputFile(file_name), 
-                caption=f"⚡️ *Muvaffaqiyatli yuklandi!* ✅\n\n🔗 `Havola:` {url}\n\n@Obidjon\_Musurmonov *tizimi*", 
+                caption=f"⚡️ *Muvaffaqiyatli yuklandi!* ✅\n\n🔗 *Havola:* `{url}`\n\n👑 @Obidjon\_Musurmonov *tizimi*", 
                 parse_mode="Markdown",
                 reply_markup=builder
             )
@@ -94,37 +94,36 @@ async def instagram_handler(message: types.Message):
             raise Exception("Fayl topilmadi")
 
     except Exception:
-        await message.answer("❌ `Yuklashda xatolik yuz berdi!`\n⚠️ _Havola noto'g'ri, yopiq profildan olingan yoki server hozir band bo'lishi mumkin._", parse_mode="Markdown")
+        await message.answer("❌ *YUKLASHDA XATOLIK YUZ BERDI!*\n\n⚠️ _Havola noto'g'ri, profil yopiq yoki server hozirda band bo'lishi mumkin._", parse_mode="Markdown")
     finally:
         try:
             await msg.delete()
         except:
             pass
 
-# 2. NOTO'G'RI MATN YOKI BOSHQA SINOV KELGANDA
+# 2. NOTO'G'RI BUYRUQ YOKI BOSHQA LINK KELGANDA
 @dp.message(F.text)
 async def text_handler(message: types.Message):
     await message.answer(
-        "📌 ▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬ 📌\n"
-        "⚠️  *DIQQAT XATOLIK:* `Noto'g'ri buyruq!`\n\n"
-        "📥  _Iltimos, faqat to'g'ri va ishlaydigan_ *Instagram* _havolasini yuboring!_\n"
-        "📌 ▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬ 📌", 
+        "🚨 ▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬ 🚨\n"
+        "⚠️ *DIQQAT:* `Noto'g'ri buyruq kiritildi!`\n\n"
+        "📥 _Iltimos, faqat to'g'ri va ishlaydigan_ *Instagram* _havolasini (linkini) yuboring!_\n"
+        "🚨 ▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬ 🚨", 
         parse_mode="Markdown"
     )
 
-# 3. INTERAKTIV AUDIO TUGMASI (XATOLIK BUTUNLAY TUZATILDI)
+# 3. INTERAKTIV AUDIO TUGMASI (MP3 VA M4A MUQOBIL FORMATLAR BILAN)
 @dp.callback_query(F.data == "find_full")
 async def audio_handler(callback: types.CallbackQuery):
     caption = callback.message.caption
     links = re.findall(r'(https?://[^\s]+)', caption)
     if not links:
-        await callback.answer("❌ Havola aniqlanmadi!", show_alert=True)
+        await callback.answer("❌ Havola topilmadi!", show_alert=True)
         return
 
     url = clean_instagram_url(links[0])
-    await callback.answer("🎶 Audio oqimi tayyorlanmoqda...", show_alert=False)
+    await callback.answer("🎶 Audio oqimi tayyorlanmoqda, kuting...", show_alert=False)
     
-    # Audio uchun xavfsiz va konvertatsiyasiz format tanlandi
     audio_name = f"music_{callback.from_user.id}.mp3"
     audio_opts = {
         **YDL_OPTS,
@@ -140,15 +139,15 @@ async def audio_handler(callback: types.CallbackQuery):
             await callback.message.answer_audio(
                 types.FSInputFile(audio_name),
                 filename="Instagram_Audio.mp3",
-                caption="🎵 *Siz so'ragan audio variant tayyor!* \n\n🔥 _Huzur qilib tinglang!_ 🔥",
+                caption="🎵 *Siz so'ragan audio variant tayyor!* \n\n🎧 _Huzur qilib tinglang!_ ✨",
                 parse_mode="Markdown"
             )
             os.remove(audio_name)
             return
         else:
-            raise Exception("Audio yaratilmadi")
+            raise Exception("Audio xatosi")
     except Exception:
-        # Muqobil formatda qayta urinib ko'rish (Eski muammoni chetlab o'tish)
+        # Agar mp3da server konvertatsiya qila olmasa, toza m4a formatida yuklaydi
         try:
             alt_name = f"music_{callback.from_user.id}.m4a"
             alt_opts = {**YDL_OPTS, 'format': 'm4a/bestaudio', 'outtmpl': alt_name}
@@ -158,14 +157,14 @@ async def audio_handler(callback: types.CallbackQuery):
                 await callback.message.answer_audio(
                     types.FSInputFile(alt_name),
                     filename="Audio.mp3",
-                    caption="🎵 *Siz so'ragan audio variant tayyor!* \n\n🔥 _Huzur qilib tinglang!_ 🔥",
+                    caption="🎵 *Siz so'ragan audio variant tayyor!* \n\n🎧 _Huzur qilib tinglang!_ ✨",
                     parse_mode="Markdown"
                 )
                 os.remove(alt_name)
                 return
         except:
             pass
-        await callback.message.answer("❌ *Kechirasiz, ushbu videoning audio oqimini ajratib olish imkoni bo'lmadi.*", parse_mode="Markdown")
+        await callback.message.answer("❌ *Kechirasiz, ushbu videoning audio variantini ajratib olish imkoni bo'lmadi.*", parse_mode="Markdown")
 
 async def main():
     await dp.start_polling(bot)
