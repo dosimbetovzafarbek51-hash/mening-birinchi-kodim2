@@ -10,7 +10,7 @@ TOKEN = os.getenv("BOT_TOKEN")
 bot = Bot(token=TOKEN)
 dp = Dispatcher()
 
-# yt-dlp uchun optimal sozlamalar
+# Railway uchun barqaror sozlamalar
 YDL_OPTS = {
     'quiet': True,
     'no_warnings': True,
@@ -54,11 +54,13 @@ async def main_handler(message: types.Message):
     except Exception as e:
         await message.answer("❌ Video yuklashda xatolik yuz berdi. Link noto'g'ri yoki video juda katta bo'lishi mumkin.")
     finally:
-        await msg.delete()
+        try:
+            await msg.delete()
+        except:
+            pass
 
 @dp.callback_query(F.data == "find_full")
 async def audio_handler(callback: types.CallbackQuery):
-    # Caption ichidan linkni qidirib topish
     caption = callback.message.caption
     links = re.findall(r'(https?://[^\s]+)', caption)
     if not links:
@@ -69,9 +71,11 @@ async def audio_handler(callback: types.CallbackQuery):
     await callback.answer("Musiqa tayyorlanmoqda... 🎶")
     
     audio_file = f"a_{callback.from_user.id}.mp3"
+    
+    # Server qotib qolmasligi uchun audio yuklashni yengillashtiramiz
     audio_opts = {
         **YDL_OPTS,
-        'format': 'bestaudio/best',
+        'format': 'ba/b',  # Eng yengil audio formatini tanlaydi
         'outtmpl': audio_file,
     }
     
@@ -85,16 +89,6 @@ async def audio_handler(callback: types.CallbackQuery):
                 types.FSInputFile(audio_file), 
                 caption="Marhamat, musiqaning varianti! 🎵"
             )
-            os.remove(audio_file) # Audio yuborilgach o'chiramiz
+            os.remove(audio_file) # Yuborilgach o'chiramiz
     except Exception:
-        await callback.message.answer("❌ Afsuski, musiqani yuklab bo'lmadi.")
-
-async def main():
-    # Botni ishga tushirish
-    await dp.start_polling(bot)
-
-if __name__ == "__main__":
-    try:
-        asyncio.run(main())
-    except (KeyboardInterrupt, SystemExit):
-        pass
+        await callback.message.answer("❌ Server yuklama tufayli musiqani bera olmadi. Bir ozdan keyin qayta urunib ko'ring.")
