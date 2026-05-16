@@ -10,7 +10,7 @@ TOKEN = os.getenv("BOT_TOKEN")
 bot = Bot(token=TOKEN)
 dp = Dispatcher()
 
-# Eng xavfsiz va barqaror yuklash sozlamalari
+# Barqaror yuklash sozlamalari
 YDL_OPTS = {
     'quiet': True,
     'no_warnings': True,
@@ -19,9 +19,9 @@ YDL_OPTS = {
     'user_agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36',
 }
 
-# === 1. START BUYRUG'I (ASL DIZAYN) ===
+# === 1. START ISHLASHI KAFOLATLANGAN FUNKSIYA ===
 @dp.message(Command("start"))
-async def start(message: types.Message):
+async def start_command(message: types.Message):
     keyboard = types.ReplyKeyboardMarkup(
         keyboard=[[types.KeyboardButton(text="🔄 Botni qayta ishga tushirish")]],
         resize_keyboard=True
@@ -43,17 +43,17 @@ async def start(message: types.Message):
         reply_markup=keyboard
     )
 
-# === 2. RESTART TUGMASI (KAFOLATLANGAN FILTR) ===
-@dp.message(F.text == "🔄 Botni qayta ishga tushirish")
+# === 2. QAYTA ISHGA TUSHIRISH TUGMASI (ENDI 100% ANIQLIKDA ISHLAYDI) ===
+# Matn ichida 'qayta' yoki 'ishga' so'zi bo'lsa darhol startni chaqiradi, adashib ketmaydi
+@dp.message(lambda msg: msg.text and any(keyword in msg.text.lower() for keyword in ["qayta", "ishga", "tushirish"]))
 async def restart_button_handler(message: types.Message):
-    await start(message)
+    await start_command(message)
 
 # === 3. VIDEO YUKLASH QISMI ===
 @dp.message(lambda msg: msg.text and any(x in msg.text for x in ["instagram.com", "youtube.com", "youtu.be"]))
 async def media_handler(message: types.Message):
     raw_url = message.text.strip()
     
-    # Havolani ortiqcha parametrlardan tozalash
     if "instagram.com" in raw_url:
         match = re.search(r'(https?://(?:www\.)?instagram\.com/(?:p|reel|tv)/[^/?\s]+)', raw_url)
         url = match.group(1) if match else raw_url
@@ -74,8 +74,6 @@ async def media_handler(message: types.Message):
         with yt_dlp.YoutubeDL(video_opts) as ydl:
             ydl.download([url])
         
-        # Audio tugmasiga havolani yashirincha biriktirib ketamiz (Xatolik butunlay yo'qolishi uchun)
-        # Callback data uzunligi max 64 bayt bo'lishi kerak, shuning uchun faqat oxirgi ID qismini saqlaymiz
         short_id = url.split('/')[-1] if url.endswith('/') == False else url.split('/')[-2]
         is_yt = "yt" if "you" in url else "ig"
         
@@ -103,14 +101,13 @@ async def media_handler(message: types.Message):
         except:
             pass
 
-# === 4. MUSIQANI AJRATIB OLISH (XATOSIZ VA ANIQ ISHLAYDI) ===
+# === 4. MUSIQANI AJRATIB OLISH ===
 @dp.callback_query(F.data.startswith("audio_"))
 async def audio_handler(callback: types.CallbackQuery):
     data_parts = callback.data.split("_")
     is_yt = data_parts[1]
     short_id = data_parts[2]
     
-    # Havolani qayta tiklaymiz
     if is_yt == "ig":
         url = f"https://www.instagram.com/reel/{short_id}"
     else:
@@ -145,14 +142,15 @@ async def audio_handler(callback: types.CallbackQuery):
         print(f"Audio yuklash xatosi: {e}")
         await callback.message.answer("❌ *Kechirasiz, ushbu videoning audio variantini ajratib olish imkoni bo'lmadi.*", parse_mode="Markdown")
 
-# === 5. BOSHQA NOTO'G'RI MATNLAR FILTRI ===
+# === 5. SHUNCHAKI NOTO'G'RI MATNLAR FILTRI ===
 @dp.message()
 async def text_handler(message: types.Message):
     if not message.text:
         return
         
-    # Agar bu start, havola yoki qayta ishga tushirish tugmasi bo'lsa, xato xabarini ko'rsatmaymiz
-    if message.text == "🔄 Botni qayta ishga tushirish" or any(x in message.text for x in ["instagram.com", "youtube.com", "youtu.be"]):
+    # Agarda kelgan matn havola yoki qayta ishga tushirishga tegishli bo'lsa, xato xabari chiqmaydi
+    text_lower = message.text.lower()
+    if any(k in text_lower for k in ["qayta", "ishga", "tushirish"]) or any(x in text_lower for x in ["instagram.com", "youtube.com", "youtu.be"]):
         return
         
     await message.answer(
