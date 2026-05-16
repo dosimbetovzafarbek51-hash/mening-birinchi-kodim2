@@ -21,12 +21,12 @@ YDL_OPTS = {
 
 @dp.message(Command("start"))
 async def start(message: types.Message):
-    # Bot tagida doimiy turadigan "🔄 Botni qayta ishga tushirish" tugmasi
+    # Bot tagida doimiy turadigan tugma
     keyboard = types.ReplyKeyboardMarkup(
         keyboard=[
             [types.KeyboardButton(text="🔄 Botni qayta ishga tushirish")]
         ],
-        resize_keyboard=True # Tugmani ixcham va chiroyli o'lchamga keltirish
+        resize_keyboard=True
     )
 
     await message.answer(
@@ -34,10 +34,9 @@ async def start(message: types.Message):
         "Bu bot @Obidjon_Musurmonov tomonidan yaratildi!\n"
         "YouTube yoki Instagram linkini yuboring.\n"
         "Men sizga video va uning audiosini yuklab beraman.",
-        reply_markup=keyboard # Tugmalarni matnga biriktirib yuboramiz
+        reply_markup=keyboard
     )
 
-# Agar foydalanuvchi pastdagi tugmani bossa, unga xuddi /start bosgandek javob beradi
 @dp.message(F.text == "🔄 Botni qayta ishga tushirish")
 async def restart_button_handler(message: types.Message):
     await start(message)
@@ -47,8 +46,8 @@ async def main_handler(message: types.Message):
     url = message.text
     msg = await message.answer("Video yuklanmoqda... ⏳")
     
-    # Fayl nomini unikal qilish
-    file_name = f"v_{message.from_user.id}_{message.message_id}.mp4"
+    # Fayl nomini xavfsiz qilish uchun faqat foydalanuvchi ID sidan foydalanamiz
+    file_name = f"v_{message.from_user.id}.mp4"
 
     video_opts = {
         **YDL_OPTS,
@@ -61,7 +60,7 @@ async def main_handler(message: types.Message):
         with yt_dlp.YoutubeDL(video_opts) as ydl:
             ydl.download([url])
         
-        # Video tagidagi inline tugma
+        # Inline tugma
         builder = types.InlineKeyboardMarkup(inline_keyboard=[
             [types.InlineKeyboardButton(text="🎵 Musiqasini yuklab olish", callback_data="find_full")]
         ])
@@ -72,10 +71,7 @@ async def main_handler(message: types.Message):
                 caption=f"Tayyor! ✅\n🔗 Havola: {url}", 
                 reply_markup=builder
             )
-            try:
-                os.remove(file_name)
-            except:
-                pass
+            # Diqqat: Videoni o'chirmaymiz, chunki foydalanuvchi audio tugmasini bossa, shu fayldan foydalanamiz!
     except Exception as e:
         await message.answer("❌ Video yuklashda xatolik yuz berdi. Link noto'g'ri yoki video juda katta bo'lishi mumkin.")
     finally:
@@ -95,7 +91,25 @@ async def audio_handler(callback: types.CallbackQuery):
     url = links[0]
     await callback.answer("Musiqa tayyorlanmoqda... 🎶")
     
-    audio_file = f"a_{callback.from_user.id}_{callback.message.message_id}.mp3"
+    video_file = f"v_{callback.from_user.id}.mp4"
+    audio_file = f"a_{callback.from_user.id}.mp3"
+    
+    # 1-REJA: Agar yuklangan video serverda turgan bo'lsa, uni to'g'ridan-to'g'ri audio qilib yuborish (YouTube uchun eng xavfsiz yo'l)
+    if os.path.exists(video_file):
+        try:
+            await callback.message.answer_audio(
+                types.FSInputFile(video_file),
+                caption="Marhamat, musiqaning varianti! 🎵"
+            )
+            try:
+                os.remove(video_file)
+            except:
+                pass
+            return
+        except Exception:
+            pass
+
+    # 2-REJA: Agar video fayl o'chib ketgan bo'lsa, audio formatida qayta yuklash (Instagram uchun)
     audio_opts = {
         **YDL_OPTS,
         'format': 'bestaudio/best',
@@ -108,7 +122,7 @@ async def audio_handler(callback: types.CallbackQuery):
         
         actual_file = audio_file
         if not os.path.exists(actual_file):
-            for ext in ['.m4a', '.webm', '.aac']:
+            for ext in ['.m4a', '.webm', '.aac', '.mp4']:
                 possible_file = audio_file.replace('.mp3', ext)
                 if os.path.exists(possible_file):
                     actual_file = possible_file
@@ -126,7 +140,7 @@ async def audio_handler(callback: types.CallbackQuery):
         else:
             await callback.message.answer("❌ Afsuski, musiqani yuklab bo'lmadi.")
     except Exception:
-        await callback.message.answer("❌ Musiqa yuklashda xatolik yuz berdi. Bir ozdan keyin qayta urinib ko'ring.")
+        await callback.message.answer("❌ Musiqa yuklashda xatolik yuz berdi.")
 
 async def main():
     await dp.start_polling(bot)
