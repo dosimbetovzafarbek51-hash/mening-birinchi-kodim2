@@ -28,13 +28,13 @@ def clean_instagram_url(url: str) -> str:
 
 @dp.message(Command("start"))
 async def start(message: types.Message):
-    # Katta harflar va chiroyli emoji bilan boshqaruv tugmasi
+    # Tugma matni tekshirgich bilan 100% bir xil qilindi
     keyboard = types.ReplyKeyboardMarkup(
-        keyboard=[[types.KeyboardButton(text="🔄 BOTNI QAYTA ISHGA TUSHIRISH")]],
+        keyboard=[[types.KeyboardButton(text="🔄 Botni qayta ishga tushirish")]],
         resize_keyboard=True
     )
     
-    # 🌟 Foydalanuvchini chiroyli kutib olish stikeri (Animatsiyali sovg'a stikeri)
+    # Chiroyli sovg'a stikeri yuborish
     try:
         await message.answer_sticker("CAACAgIAAxkBAAENWpZmGj7l8pZ_u10K7D5vM9zAAUY37AACBwADwDZPE_Yv929zS3vXNAQ")
     except:
@@ -51,7 +51,8 @@ async def start(message: types.Message):
         reply_markup=keyboard
     )
 
-@dp.message(F.text == "🔄 BOTNI QAYTA ISHGA TUSHIRISH")
+# TUGMA BOSILGANDA ISHLAYDIGAN MAXSUS QISM (XATOLIK SHU YERDA EDI)
+@dp.message(F.text == "🔄 Botni qayta ishga tushirish")
 async def restart_button_handler(message: types.Message):
     await start(message)
 
@@ -75,7 +76,6 @@ async def instagram_handler(message: types.Message):
         with yt_dlp.YoutubeDL(video_opts) as ydl:
             ydl.download([url])
         
-        # Tugmaga yorqin va jalb qiluvchi emojilar qo'shildi
         builder = types.InlineKeyboardMarkup(inline_keyboard=[
             [types.InlineKeyboardButton(text="🎵 🔥 MUSIQASINI YUKLAB OLISH 🔥 🎵", callback_data="find_full")]
         ])
@@ -101,18 +101,7 @@ async def instagram_handler(message: types.Message):
         except:
             pass
 
-# 2. NOTO'G'RI BUYRUQ YOKI BOSHQA LINK KELGANDA
-@dp.message(F.text)
-async def text_handler(message: types.Message):
-    await message.answer(
-        "🚨 ▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬ 🚨\n"
-        "⚠️ *DIQQAT:* `Noto'g'ri buyruq kiritildi!`\n\n"
-        "📥 _Iltimos, faqat to'g'ri va ishlaydigan_ *Instagram* _havolasini (linkini) yuboring!_\n"
-        "🚨 ▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬ 🚨", 
-        parse_mode="Markdown"
-    )
-
-# 3. INTERAKTIV AUDIO TUGMASI (MP3 VA M4A MUQOBIL FORMATLAR BILAN)
+# 2. INTERAKTIV AUDIO TUGMASI (QO'SHIQ MUAMMOSI TO'LIQ TUZATILDI)
 @dp.callback_query(F.data == "find_full")
 async def audio_handler(callback: types.CallbackQuery):
     caption = callback.message.caption
@@ -122,9 +111,9 @@ async def audio_handler(callback: types.CallbackQuery):
         return
 
     url = clean_instagram_url(links[0])
-    await callback.answer("🎶 Audio oqimi tayyorlanmoqda, kuting...", show_alert=False)
+    await callback.answer("🎶 Audio oqimi yuklanmoqda, kuting...", show_alert=False)
     
-    audio_name = f"music_{callback.from_user.id}.mp3"
+    audio_name = f"music_{callback.from_user.id}.m4a"
     audio_opts = {
         **YDL_OPTS,
         'format': 'bestaudio/best',
@@ -138,7 +127,7 @@ async def audio_handler(callback: types.CallbackQuery):
         if os.path.exists(audio_name):
             await callback.message.answer_audio(
                 types.FSInputFile(audio_name),
-                filename="Instagram_Audio.mp3",
+                filename="Instagram_Audio.m4a",
                 caption="🎵 *Siz so'ragan audio variant tayyor!* \n\n🎧 _Huzur qilib tinglang!_ ✨",
                 parse_mode="Markdown"
             )
@@ -147,24 +136,19 @@ async def audio_handler(callback: types.CallbackQuery):
         else:
             raise Exception("Audio xatosi")
     except Exception:
-        # Agar mp3da server konvertatsiya qila olmasa, toza m4a formatida yuklaydi
-        try:
-            alt_name = f"music_{callback.from_user.id}.m4a"
-            alt_opts = {**YDL_OPTS, 'format': 'm4a/bestaudio', 'outtmpl': alt_name}
-            with yt_dlp.YoutubeDL(alt_opts) as ydl:
-                ydl.download([url])
-            if os.path.exists(alt_name):
-                await callback.message.answer_audio(
-                    types.FSInputFile(alt_name),
-                    filename="Audio.mp3",
-                    caption="🎵 *Siz so'ragan audio variant tayyor!* \n\n🎧 _Huzur qilib tinglang!_ ✨",
-                    parse_mode="Markdown"
-                )
-                os.remove(alt_name)
-                return
-        except:
-            pass
         await callback.message.answer("❌ *Kechirasiz, ushbu videoning audio variantini ajratib olish imkoni bo'lmadi.*", parse_mode="Markdown")
+
+# 3. NOTO'G'RI BUYRUQ ( FAQAT HAVOLA VA TUGMADAN TASHQARI MATNLAR UCHUN )
+@dp.message(F.text)
+async def text_handler(message: types.Message):
+    if "instagram.com" not in message.text and message.text != "🔄 Botni qayta ishga tushirish":
+        await message.answer(
+            "🚨 ▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬ 🚨\n"
+            "⚠️ *DIQQAT:* `Noto'g'ri buyruq kiritildi!`\n\n"
+            "📥 _Iltimos, faqat to'g'ri va ishlaydigan_ *Instagram* _havolasini (linkini) yuboring!_\n"
+            "🚨 ▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬ 🚨", 
+            parse_mode="Markdown"
+        )
 
 async def main():
     await dp.start_polling(bot)
