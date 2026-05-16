@@ -19,10 +19,10 @@ YDL_OPTS = {
     'user_agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36',
 }
 
-# START TUGMASI UCHUN REPLY KLAVIATURA
+# START TUGMASI (EBLAB EMOLARSIZ MATN QO'YILDI, ADASHMAYDI)
 def get_start_keyboard():
     return types.ReplyKeyboardMarkup(
-        keyboard=[[types.KeyboardButton(text="🔄 Botni qayta ishga tushirish")]],
+        keyboard=[[types.KeyboardButton(text="Botni qayta ishga tushirish")]],
         resize_keyboard=True
     )
 
@@ -45,8 +45,9 @@ async def start_command(message: types.Message):
         reply_markup=get_start_keyboard()
     )
 
-# === 2. RESTART TUGMASI (ENG YUQORIGA QO'YILDI - METOD ISHLASHI SHART!) ===
-@dp.message(F.text.contains("qayta") | F.text.contains("ishga") | F.text.contains("tushirish"))
+# === 2. RESTART TUGMASI (ENG ISHONCHLI FILTR) ===
+# Tugma bosilganda ham, foydalanuvchi o'zi yozganda ham darhol startga otadi
+@dp.message(F.text.casefold().contains("qayta ishga") | (F.text == "Botni qayta ishga tushirish"))
 async def restart_button_handler(message: types.Message):
     await start_command(message)
 
@@ -143,15 +144,15 @@ async def audio_handler(callback: types.CallbackQuery):
         print(f"Audio yuklash xatosi: {e}")
         await callback.message.answer("❌ *Kechirasiz, ushbu videoning audio variantini ajratib olish imkoni bo'lmadi.*", parse_mode="Markdown")
 
-# === 5. SHUNCHAKI NOTO'G'RI MATNLAR FILTRI (ENG OXIRIGA TUSHIRILDI) ===
+# === 5. NOTO'G'RI MATNLAR FILTRI (FAQAT ENG OXIRIDA ISHLAYDI) ===
 @dp.message()
 async def text_handler(message: types.Message):
     if not message.text:
         return
         
-    # Agar bu start, havola yoki qayta ishga tushirish tugmasi bo'lsa, bu yerga umuman kirmaydi
     text_lower = message.text.lower()
-    if any(k in text_lower for k in ["qayta", "ishga", "tushirish"]) or any(x in text_lower for x in ["instagram.com", "youtube.com", "youtu.be"]):
+    # Agar matnda qayta ishga tushirish yoki link bo'lsa, xato xabari chiqmasligi kafolatlanadi
+    if "qayta" in text_lower or "ishga" in text_lower or any(x in text_lower for x in ["instagram.com", "youtube.com", "youtu.be"]):
         return
         
     await message.answer(
