@@ -28,13 +28,12 @@ def clean_instagram_url(url: str) -> str:
 
 @dp.message(Command("start"))
 async def start(message: types.Message):
-    # Tugma matni tekshirgich bilan 100% bir xil qilindi
+    # Tugma matni mukammal darajada tekshiruvchiga moslandi
     keyboard = types.ReplyKeyboardMarkup(
         keyboard=[[types.KeyboardButton(text="🔄 Botni qayta ishga tushirish")]],
         resize_keyboard=True
     )
     
-    # Chiroyli sovg'a stikeri yuborish
     try:
         await message.answer_sticker("CAACAgIAAxkBAAENWpZmGj7l8pZ_u10K7D5vM9zAAUY37AACBwADwDZPE_Yv929zS3vXNAQ")
     except:
@@ -51,8 +50,8 @@ async def start(message: types.Message):
         reply_markup=keyboard
     )
 
-# TUGMA BOSILGANDA ISHLAYDIGAN MAXSUS QISM (XATOLIK SHU YERDA EDI)
-@dp.message(F.text == "🔄 Botni qayta ishga tushirish")
+# 🛠 TUGMA BOSILGANDA HECH QANDAY ADASHMASDAN ISHLAYDIGAN ASOSIY QISM
+@dp.message(F.text.startswith("🔄 Botni qayta ishga tushirish") | (F.text == "🔄 Botni qayta ishga tushirish"))
 async def restart_button_handler(message: types.Message):
     await start(message)
 
@@ -101,7 +100,7 @@ async def instagram_handler(message: types.Message):
         except:
             pass
 
-# 2. INTERAKTIV AUDIO TUGMASI (QO'SHIQ MUAMMOSI TO'LIQ TUZATILDI)
+# 2. INTERAKTIV AUDIO TUGMASI (NOMLANISHI "music.m4a" QILINDI)
 @dp.callback_query(F.data == "find_full")
 async def audio_handler(callback: types.CallbackQuery):
     caption = callback.message.caption
@@ -127,7 +126,7 @@ async def audio_handler(callback: types.CallbackQuery):
         if os.path.exists(audio_name):
             await callback.message.answer_audio(
                 types.FSInputFile(audio_name),
-                filename="Instagram_Audio.m4a",
+                filename="music.m4a",  # Siz xohlagandek fayl nomi "music" qilib sozlandi
                 caption="🎵 *Siz so'ragan audio variant tayyor!* \n\n🎧 _Huzur qilib tinglang!_ ✨",
                 parse_mode="Markdown"
             )
@@ -138,10 +137,11 @@ async def audio_handler(callback: types.CallbackQuery):
     except Exception:
         await callback.message.answer("❌ *Kechirasiz, ushbu videoning audio variantini ajratib olish imkoni bo'lmadi.*", parse_mode="Markdown")
 
-# 3. NOTO'G'RI BUYRUQ ( FAQAT HAVOLA VA TUGMADAN TASHQARI MATNLAR UCHUN )
+# 3. NOTO'G'RI BUYRUQ ( FAQAT INSTAGRAM LINKI VA QAYTA ISHGA TUSHIRISH TUGMASIDAN TASHQARI MATNLAR UCHUN )
 @dp.message(F.text)
 async def text_handler(message: types.Message):
-    if "instagram.com" not in message.text and message.text != "🔄 Botni qayta ishga tushirish":
+    # Agar kelgan matn tugma matni bo'lsa, xatolik xabarini ko'rsatmaslik uchun filtr
+    if "instagram.com" not in message.text and "Botni qayta ishga tushirish" not in message.text:
         await message.answer(
             "🚨 ▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬ 🚨\n"
             "⚠️ *DIQQAT:* `Noto'g'ri buyruq kiritildi!`\n\n"
