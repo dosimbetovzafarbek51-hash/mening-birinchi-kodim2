@@ -10,7 +10,6 @@ TOKEN = os.getenv("BOT_TOKEN")
 bot = Bot(token=TOKEN)
 dp = Dispatcher()
 
-# Eng xavfsiz va barqaror yuklash sozlamalari
 YDL_OPTS = {
     'quiet': True,
     'no_warnings': True,
@@ -27,7 +26,7 @@ def clean_url(url: str) -> str:
             return clean_insta.group(1)
     return url
 
-# === 1. START BUYRUG'I VA ASL MATNLAR ===
+# === 1. START BUYRUG'I ===
 @dp.message(Command("start"))
 async def start(message: types.Message):
     keyboard = types.ReplyKeyboardMarkup(
@@ -51,13 +50,13 @@ async def start(message: types.Message):
         reply_markup=keyboard
     )
 
-# === 2. TUGMANI 100% TANIDIGAN FILTR (XATOSIZ ISHLAYDI) ===
-@dp.message(F.text == "🔄 Botni qayta ishga tushirish")
+# === 2. RESTART TUGMASI (TUGMANI HAR QANDAY REJIMDA USHLAYDIGAN REJAX FILTR) ===
+@dp.message(lambda msg: msg.text and ("qayta" in msg.text.lower() or "tushirish" in msg.text.lower()))
 async def restart_button_handler(message: types.Message):
     await start(message)
 
 # === 3. VIDEO YUKLASH QISMI (YOUTUBE VA INSTAGRAM) ===
-@dp.message(lambda msg: any(x in msg.text for x in ["instagram.com", "youtube.com", "youtu.be"]) if msg.text else False)
+@dp.message(lambda msg: msg.text and any(x in msg.text for x in ["instagram.com", "youtube.com", "youtu.be"]))
 async def media_handler(message: types.Message):
     raw_url = message.text
     msg = await message.answer("🛸 ⏳ `Tizim ulanmoqda... Video yuklanmoqda...` 💾", parse_mode="Markdown")
@@ -76,7 +75,6 @@ async def media_handler(message: types.Message):
         with yt_dlp.YoutubeDL(video_opts) as ydl:
             ydl.download([url])
         
-        # Inline tugma matni joyiga qaytarildi
         builder = types.InlineKeyboardMarkup(inline_keyboard=[
             [types.InlineKeyboardButton(text="🎵 ⬇️ MUSIQASINI YUKLAB OLISH ⬇️ 🎵", callback_data="find_full")]
         ])
@@ -92,7 +90,7 @@ async def media_handler(message: types.Message):
             await msg.delete()
             return
         else:
-            raise Exception("Fayl yuklanmadi")
+            raise Exception("Video fayl yaratilmadi")
 
     except Exception:
         await message.answer("❌ *YUKLASHDA XATOLIK YUZ BERDI!*\n\n⚠️ _Havola noto'g'ri, video yopiq yoki o'ta katta bo'lishi mumkin._", parse_mode="Markdown")
@@ -102,12 +100,13 @@ async def media_handler(message: types.Message):
         except:
             pass
 
-# === 4. MUSIQANI XATOSIZ AJRATIB OLISH (MP3 FORMAT) ===
+# === 4. MUSIQANI XATOSIZ AJRATIB OLISH ===
 @dp.callback_query(F.data == "find_full")
 async def audio_handler(callback: types.CallbackQuery):
+    # Havolani caption ichidan juda qat'iy rejaqs orqali qidiramiz
     caption = callback.message.caption or ""
-    # Caption ichidan toza linkni ajratib olish filtri kuchaytirildi
-    links = re.findall(r'https?://[^\s]+', caption)
+    links = re.findall(r'https?://[^\s👑]+', caption)
+    
     if not links:
         await callback.answer("❌ Havola topilmadi!", show_alert=True)
         return
@@ -129,7 +128,7 @@ async def audio_handler(callback: types.CallbackQuery):
         if os.path.exists(audio_name):
             await callback.message.answer_audio(
                 types.FSInputFile(audio_name),
-                filename="music.mp3",  # Yuklab olinganda toza .mp3 bo'ladi
+                filename="music.mp3",
                 performer="music",
                 title="music",
                 caption="🎵 *Siz so'ragan audio variant tayyor!* \n\n🎧 _Huzur qilib tinglang!_ ✨",
@@ -138,16 +137,17 @@ async def audio_handler(callback: types.CallbackQuery):
             os.remove(audio_name)
             return
         else:
-            raise Exception("Audio fayl topilmadi")
+            raise Exception("Audio fayl yaratilmadi")
     except Exception:
         await callback.message.answer("❌ *Kechirasiz, ushbu videoning audio variantini ajratib olish imkoni bo'lmadi.*", parse_mode="Markdown")
 
-# === 5. BOSHQA NOTO'G'RI BUYRUQLAR FILTRI ===
+# === 5. BOSHQA NOTO'G'RI MATNLAR FILTRI ===
 @dp.message()
 async def text_handler(message: types.Message):
     if message.text:
-        # Agar bu qayta ishga tushirish tugmasi yoki havola bo'lsa, xato xabarini ko'rsatmaydi!
-        if message.text == "🔄 Botni qayta ishga tushirish" or any(x in message.text for x in ["instagram.com", "youtube.com", "youtu.be"]):
+        # Agar matnda biron-bir kalit so'z bo'lsa, xato xabarini chiqarmasdan o'tkazib yuboradi
+        text_lower = message.text.lower()
+        if "qayta" in text_lower or "tushirish" in text_lower or any(x in text_lower for x in ["instagram.com", "youtube.com", "youtu.be"]):
             return
         
         await message.answer(
