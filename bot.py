@@ -10,43 +10,63 @@ TOKEN = os.getenv("BOT_TOKEN")
 bot = Bot(token=TOKEN)
 dp = Dispatcher()
 
-# Railway serveri uchun barqaror va eng xavfsiz umumiy sozlamalar
+# Instagram uchun yuklash sozlamalari
 YDL_OPTS = {
     'quiet': True,
     'no_warnings': True,
     'nocheckcertificate': True,
-    'user_agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/122.0.0.0 Safari/537.36',
     'geo_bypass': True,
+    'user_agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36',
 }
+
+def clean_instagram_url(url: str) -> str:
+    """Instagram havolasidan ortiqcha parametrlarni tozalab, toza havola qoldirish"""
+    clean_insta = re.search(r'(https?:\/\/www\.instagram\.com\/(?:p|reel|tv)\/[^\/\?]+)', url)
+    if clean_insta:
+        return clean_insta.group(1)
+    return url
 
 @dp.message(Command("start"))
 async def start(message: types.Message):
+    # Doimiy tugma (Siz xohlagandek original holatda)
+    keyboard = types.ReplyKeyboardMarkup(
+        keyboard=[[types.KeyboardButton(text="🔄 Botni qayta ishga tushirish")]],
+        resize_keyboard=True
+    )
     await message.answer(
         "✅ **Assalomu alaykum!**\n"
         "Bu bot @Obidjon_Musurmonov tomonidan yaratildi!\n"
-        "YouTube yoki Instagram linkini yuboring.\n"
-        "Men sizga video va uning audiosini yuklab beraman."
+        "Instagram linkini yuboring.\n"
+        "Men sizga video va uning audiosini yuklab beraman.",
+        reply_markup=keyboard
     )
 
-@dp.message(F.text.startswith("http"))
-async def main_handler(message: types.Message):
-    url = message.text
-    msg = await message.answer("Video yuklanmoqda... ⏳")
-    file_name = f"v_{message.from_user.id}.mp4"
+@dp.message(F.text == "🔄 Botni qayta ishga tushirish")
+async def restart_button_handler(message: types.Message):
+    await start(message)
 
-    # Eng barqaror format kombinatsiyasi
+# 1. INSTAGRAM HAVOLASI KELGANDA ISHLAYDIGAN QISM
+@dp.message(F.text.contains("instagram.com"))
+async def instagram_handler(message: types.Message):
+    raw_url = message.text
+    msg = await message.answer("Instagram videosi yuklanmoqda... ⏳")
+    
+    url = clean_instagram_url(raw_url)
+    file_name = f"insta_{message.from_user.id}.mp4"
+    
     video_opts = {
         **YDL_OPTS,
-        'format': 'ext=mp4/best',
-        'outtmpl': file_name
+        'format': 'best',
+        'outtmpl': file_name,
+        'max_filesize': 48 * 1024 * 1024  # 48MB gacha cheklov
     }
 
     try:
-        # Videoni yuklash
+        # To'g'ridan-to'g'ri Instagram'dan yuklash
         with yt_dlp.YoutubeDL(video_opts) as ydl:
             ydl.download([url])
         
-        # Tugma yaratish
+        # Audio tugmasi (Siz xohlagandek original holatda)
         builder = types.InlineKeyboardMarkup(inline_keyboard=[
             [types.InlineKeyboardButton(text="🎵 Musiqasini yuklab olish", callback_data="find_full")]
         ])
@@ -57,15 +77,26 @@ async def main_handler(message: types.Message):
                 caption=f"Tayyor! ✅\n🔗 Havola: {url}", 
                 reply_markup=builder
             )
-            # Diqqat: Videoni o'chirmaymiz, chunki foydalanuvchi musiqa tugmasini bossa, shu fayldan foydalanamiz!
-    except Exception as e:
-        await message.answer("❌ Video yuklashda xatolik yuz berdi. Link noto'g'ri yoki video juda katta bo'lishi mumkin.")
+            os.remove(file_name)
+            await msg.delete()
+            return
+        else:
+            raise Exception("Fayl yuklanmadi")
+
+    except Exception:
+        await message.answer("❌ Video yuklashda xatolik yuz berdi. Havola noto'g'ri yoki video yuklash imkonsiz.")
     finally:
         try:
             await msg.delete()
         except:
             pass
 
+# 2. BOSHQA HAR QANDAY MATN YOKI YOUTUBE HAVOLASI KELGANDA
+@dp.message(F.text)
+async def text_handler(message: types.Message):
+    await message.answer("⚠️ Iltimos, faqat Instagram havolasini (linkini) yuboring!")
+
+# 3. INTERAKTIV AUDIO TUGMASI BOSILGANDA
 @dp.callback_query(F.data == "find_full")
 async def audio_handler(callback: types.CallbackQuery):
     caption = callback.message.caption
@@ -74,51 +105,28 @@ async def audio_handler(callback: types.CallbackQuery):
         await callback.answer("Link topilmadi!", show_alert=True)
         return
 
-    url = links[0]
+    url = clean_instagram_url(links[0])
     await callback.answer("Musiqa tayyorlanmoqda... 🎶")
     
-    # 1-REJA: Videoning o'zini audio qilib yuborish (Eng tezkor va 100% xatosiz yo'l!)
-    video_file = f"v_{callback.from_user.id}.mp4"
-    
-    if os.path.exists(video_file):
-        try:
-            await callback.message.answer_audio(
-                types.FSInputFile(video_file),
-                caption="Marhamat, musiqaning varianti! 🎵"
-            )
-            os.remove(video_file) # Ishlatib bo'lingach, faylni o'chiramiz
-            return
-        except Exception:
-            pass
-
-    # 2-REJA: Agar video fayl biron sabab bilan o'chib ketgan bo'lsa, qayta yuklash
-    audio_file = f"a_{callback.from_user.id}.mp3"
+    audio_name = f"mus_{callback.from_user.id}.mp3"
     audio_opts = {
         **YDL_OPTS,
         'format': 'bestaudio/best',
-        'outtmpl': audio_file,
+        'outtmpl': audio_name,
     }
-    
+
     try:
         with yt_dlp.YoutubeDL(audio_opts) as ydl:
             ydl.download([url])
-        
-        actual_file = audio_file
-        if not os.path.exists(actual_file):
-            for ext in ['.m4a', '.webm', '.aac']:
-                possible_file = audio_file.replace('.mp3', ext)
-                if os.path.exists(possible_file):
-                    actual_file = possible_file
-                    break
-
-        if os.path.exists(actual_file):
+            
+        if os.path.exists(audio_name):
             await callback.message.answer_audio(
-                types.FSInputFile(actual_file), 
+                types.FSInputFile(audio_name),
+                filename="music.mp3",
                 caption="Marhamat, musiqaning varianti! 🎵"
             )
-            os.remove(actual_file)
-        else:
-            await callback.message.answer("❌ Afsuski, musiqani yuklab bo'lmadi.")
+            os.remove(audio_name)
+            return
     except Exception:
         await callback.message.answer("❌ Musiqa yuklashda xatolik yuz berdi.")
 
