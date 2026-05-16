@@ -5,163 +5,133 @@ import yt_dlp
 from aiogram import Bot, Dispatcher, types, F
 from aiogram.filters import Command
 
-# O'zgaruvchilarni olish
+# Token va Bot sozlamalari
 TOKEN = os.getenv("BOT_TOKEN")
 bot = Bot(token=TOKEN)
 dp = Dispatcher()
 
-# Eng barqaror yuklash sozlamalari
+# Eng xavfsiz va sodda yuklash filtri
 YDL_OPTS = {
     'quiet': True,
     'no_warnings': True,
     'nocheckcertificate': True,
     'geo_bypass': True,
-    'user_agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36',
+    'format': 'best',  # Murakkab formatlardan voz kechib, eng barqarorini tanlaymiz
+    'user_agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36'
 }
 
 def clean_url(url: str) -> str:
-    """Instagram havolalarini ortiqcha parametrlardan tozalash"""
+    """Instagram linklaridagi ortiqcha parchalarni tozalash"""
     if "instagram.com" in url:
-        clean_insta = re.search(r'(https?:\/\/www\.instagram\.com\/(?:p|reel|tv)\/[^\/\?]+)', url)
-        if clean_insta:
-            return clean_insta.group(1)
+        match = re.search(r'(https?:\/\/www\.instagram\.com\/(?:p|reel|tv)\/[^\/\?]+)', url)
+        if match:
+            return match.group(1)
     return url
 
 @dp.message(Command("start"))
-async def start(message: types.Message):
-    keyboard = types.ReplyKeyboardMarkup(
+async def start_cmd(message: types.Message):
+    kb = types.ReplyKeyboardMarkup(
         keyboard=[[types.KeyboardButton(text="🔄 Botni qayta ishga tushirish")]],
         resize_keyboard=True
     )
-    
-    try:
-        await message.answer_sticker("CAACAgIAAxkBAAENWpZmGj7l8pZ_u10K7D5vM9zAAUY37AACBwADwDZPE_Yv929zS3vXNAQ")
-    except:
-        pass
-
     await message.answer(
-        "✨ 🚀 *XUSH KELIBSIZ!* 🚀 ✨\n"
-        "▫️▫️▫️▫️▫️▫️▫️▫️▫️▫️▫️▫️▫️\n\n"
-        "🤖 *Ushbu universal yuklagich bot* @Obidjon_Musurmonov *tomonidan maxsus tayyorlandi.*\n\n"
-        "📥 `Menga Instagram (Reels) yoki YouTube havolasini yuboring!`\n"
-        "⚡️ _Tizim sizga video va uning audiosini eng yuqori sifatda taqdim etadi._\n\n"
-        "▫️▫️▫️▫️▫️▫️▫️▫️▫️▫️▫️▫️▫️",
+        "👋 *Assalomu alaykum!*\n\n"
+        "📥 Menga **Instagram Reels** yoki **YouTube** havolasini yuboring.\n"
+        "Tizim sizga video va uning audiosini yuklab beradi.",
         parse_mode="Markdown",
-        reply_markup=keyboard
+        reply_markup=kb
     )
 
-# 🔄 QAYTA ISHGA TUSHIRISH TUGMASI (To'liq matnli xavfsiz filtr)
-@dp.message(lambda msg: "qayta" in msg.text.lower() or "tushirish" in msg.text.lower() if msg.text else False)
-async def restart_button_handler(message: types.Message):
-    await start(message)
+# Qayta ishga tushirish tugmasi uchun aniq filtr
+@dp.message(F.text == "🔄 Botni qayta ishga tushirish")
+async def restart_btn(message: types.Message):
+    await start_cmd(message)
 
-# 1. ASOSIY MEDIA YUKLAGICH (YOUTUBE VA INSTAGRAM UCHUN)
+# Havolalarni tutib qoluvchi asosiy qism
 @dp.message(lambda msg: any(x in msg.text for x in ["instagram.com", "youtube.com", "youtu.be"]) if msg.text else False)
-async def media_handler(message: types.Message):
-    raw_url = message.text
-    msg = await message.answer("🛸 ⏳ `Tizim ulanmoqda... Media yuklanmoqda...` 💾", parse_mode="Markdown")
+async def handle_media(message: types.Message):
+    url = clean_url(message.text)
+    status_msg = await message.answer("⏳ `So'rov qabul qilindi. Media yuklanmoqda...`", parse_mode="Markdown")
     
-    url = clean_url(raw_url)
-    file_name = f"video_{message.from_user.id}.mp4"
+    out_filename = f"file_{message.from_user.id}.mp4"
+    opts = {**YDL_OPTS, 'outtmpl': out_filename}
     
-    video_opts = {
-        **YDL_OPTS,
-        'format': 'best[ext=mp4]/best',
-        'outtmpl': file_name,
-        'max_filesize': 48 * 1024 * 1024
-    }
-
     try:
-        with yt_dlp.YoutubeDL(video_opts) as ydl:
+        # Yuklash jarayoni
+        with yt_dlp.YoutubeDL(opts) as ydl:
             ydl.download([url])
         
-        builder = types.InlineKeyboardMarkup(inline_keyboard=[
-            [types.InlineKeyboardButton(text="🎵 🔥 MUSIQASINI YUKLAB OLISH 🔥 🎵", callback_data="find_full")]
-        ])
-
-        if os.path.exists(file_name):
+        if os.path.exists(out_filename):
+            # Audio tugmachasi
+            audio_btn = types.InlineKeyboardMarkup(inline_keyboard=[
+                [types.InlineKeyboardButton(text="🎵 MP3 shaklini yuklab olish", callback_data="get_audio")]
+            ])
+            
             await message.answer_video(
-                types.FSInputFile(file_name), 
-                caption=f"⚡️ *Muvaffaqiyatli yuklandi!* ✅\n\n🔗 *Havola:* `{url}`\n\n👑 @Obidjon\_Musurmonov *tizimi*", 
+                video=types.FSInputFile(out_filename),
+                caption=f"✅ **Tayyor!**\n🔗 Havola: {url}",
                 parse_mode="Markdown",
-                reply_markup=builder
+                reply_markup=audio_btn
             )
-            os.remove(file_name)
-            await msg.delete()
-            return
+            os.remove(out_filename)
+            await status_msg.delete()
         else:
-            raise Exception("Fayl yuklanmadi")
-
+            raise Exception("Fayl serverga yozilmadi")
+            
     except Exception as e:
-        print(f"Yuklash xatosi: {e}")
-        await message.answer("❌ *YUKLASHDA XATOLIK YUZ BERDI!*\n\n⚠️ _Havola noto'g'ri, video yopiq yoki o'ta katta bo'lishi mumkin._", parse_mode="Markdown")
-    finally:
+        print(f"Xatolik yuz berdi: {e}")
+        await message.answer("❌ **Yuklashda xatolik yuz berdi!**\n\n_Iltimos, havola to'g'riligini yoki profil ochiqligini tekshiring._", parse_mode="Markdown")
         try:
-            await msg.delete()
+            await status_msg.delete()
         except:
             pass
 
-# 2. AUDIONYI TOZA VA XATOSIZ AJRATIB OLISH QISMI
-@dp.callback_query(F.data == "find_full")
-async def audio_handler(callback: types.CallbackQuery):
-    caption = callback.message.caption
+# Audioni ajratib olib yuborish (Siz so'ragan MP3 formati)
+@dp.callback_query(F.data == "get_audio")
+async def handle_audio(callback: types.CallbackQuery):
+    # Caption ichidan linkni qayta ajratib olamiz
+    caption = callback.message.caption or ""
     links = re.findall(r'(https?://[^\s]+)', caption)
+    
     if not links:
         await callback.answer("❌ Havola topilmadi!", show_alert=True)
         return
-
+        
     url = clean_url(links[0])
-    await callback.answer("🎶 Audio tayyorlanmoqda, kuting...", show_alert=False)
+    await callback.answer("🎶 Audio tayyorlanmoqda...")
     
-    audio_name = f"music_{callback.from_user.id}.m4a"
-    audio_opts = {
-        **YDL_OPTS,
-        'format': 'bestaudio/best',
-        'outtmpl': audio_name,
-    }
-
+    audio_filename = f"audio_{callback.from_user.id}.m4a"
+    opts = {**YDL_OPTS, 'format': 'bestaudio/best', 'outtmpl': audio_filename}
+    
     try:
-        with yt_dlp.YoutubeDL(audio_opts) as ydl:
+        with yt_dlp.YoutubeDL(opts) as ydl:
             ydl.download([url])
             
-        if os.path.exists(audio_name):
+        if os.path.exists(audio_filename):
             await callback.message.answer_audio(
-                types.FSInputFile(audio_name),
-                filename="music.mp3",  # Yuklab olganda foydalanuvchiga baribir .mp3 bo'lib ko'rinadi!
-                performer="Muzik",
+                audio=types.FSInputFile(audio_filename),
+                filename="music.mp3",  # Foydalanuvchi yuklab olganda .mp3 formatda saqlanadi
                 title="music",
-                caption="🎵 *Siz so'ragan audio variant tayyor!* \n\n🎧 _Huzur qilib tinglang!_ ✨",
+                performer="Bot Yuklovchi",
+                caption="🎵 **Musiqa mp3 formatda tayyorlandi!**",
                 parse_mode="Markdown"
             )
-            os.remove(audio_name)
-            return
+            os.remove(audio_filename)
         else:
             raise Exception("Audio fayl topilmadi")
     except Exception as e:
         print(f"Audio xatosi: {e}")
-        await callback.message.answer("❌ *Kechirasiz, ushbu videodan audio ajratib olish imkoni bo'lmadi.*", parse_mode="Markdown")
+        await callback.message.answer("❌ **Kechirasiz, audioni ajratib olishda xatolik bo'ldi.**", parse_mode="Markdown")
 
-# 3. FILTRGA TUSHMAY QOLGAN BOSHQA MATNLAR
+# Noto'g'ri matn yuborilganda
 @dp.message()
-async def text_handler(message: types.Message):
-    if message.text:
-        text_lower = message.text.lower()
-        if any(x in text_lower for x in ["instagram.com", "youtube.com", "youtu.be", "qayta", "tushirish"]):
-            return
-        
-        await message.answer(
-            "🚨 ▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬ 🚨\n"
-            "⚠️ *DIQQAT:* `Noto'g'ri buyruq kiritildi!`\n\n"
-            "📥 _Iltimos, faqat to'g'ri va ishlaydigan_ *Instagram* _yoki_ *YouTube* _havolasini yuboring!_\n"
-            "🚨 ▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬ 🚨", 
-            parse_mode="Markdown"
-        )
+async def text_fallback(message: types.Message):
+    if message.text == "🔄 Botni qayta ishga tushirish":
+        return
+    await message.answer("⚠️ **Iltimos, faqat to'g'ri Instagram yoki YouTube havolasini yuboring!**")
 
 async def main():
     await dp.start_polling(bot)
 
 if __name__ == "__main__":
-    try:
-        asyncio.run(main())
-    except (KeyboardInterrupt, SystemExit):
-        pass
+    asyncio.run(main())
