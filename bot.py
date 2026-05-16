@@ -16,7 +16,6 @@ YDL_OPTS = {
     'no_warnings': True,
     'nocheckcertificate': True,
     'geo_bypass': True,
-    'cookiefile': None,  # Zarurat bo'lsa cookies qo'shish imkoniyati
     'user_agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36',
     'http_headers': {
         'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,image/webp,image/apng,*/*;q=0.8',
@@ -26,12 +25,10 @@ YDL_OPTS = {
 
 def clean_url(url: str) -> str:
     """Pleylist, radio va ortiqcha parametrlarni havoladan tozalash"""
-    # YouTube uchun ID ajratish
     if "youtube.com" in url or "youtu.be" in url:
         video_id_match = re.search(r'(?:v=|\/v\/|embed\/|youtu\.be\/|shorts\/)([^"&?\/ ]{11})', url)
         if video_id_match:
             return f"https://www.youtube.com/watch?v={video_id_match.group(1)}"
-    # Instagram uchun toza havola
     elif "instagram.com" in url:
         clean_insta = re.search(r'(https?:\/\/www\.instagram\.com\/(?:p|reel|tv)\/[^\/\?]+)', url)
         if clean_insta:
@@ -40,7 +37,6 @@ def clean_url(url: str) -> str:
 
 @dp.message(Command("start"))
 async def start(message: types.Message):
-    # Bot ostidagi doimiy tugma
     keyboard = types.ReplyKeyboardMarkup(
         keyboard=[[types.KeyboardButton(text="🔄 Botni qayta ishga tushirish")]],
         resize_keyboard=True
@@ -63,20 +59,17 @@ async def main_handler(message: types.Message):
     raw_url = message.text
     msg = await message.answer("Video yuklanmoqda... ⏳")
     
-    # Havolani keraksiz parametrlardan tozalash
     url = clean_url(raw_url)
+    file_name = f"v_{message.from_user.id}.mp4"
     
-    file_name = f"v_{message.from_user.id}_{message.message_id}.mp4"
-    # Sifatni Telegram cheklovlariga moslab optimallashtirish (bitta faylda video+audio oqimi bilan)
     video_opts = {
         **YDL_OPTS,
         'format': 'best[ext=mp4]/best',
         'outtmpl': file_name,
-        'max_filesize': 45 * 1024 * 1024  # Maksimal 45MB gacha cheklov
+        'max_filesize': 48 * 1024 * 1024
     }
 
     try:
-        # Tashqi API'larsiz, to'g'ridan-to'g'ri server orqali yuklash
         with yt_dlp.YoutubeDL(video_opts) as ydl:
             ydl.download([url])
         
@@ -90,10 +83,7 @@ async def main_handler(message: types.Message):
                 caption=f"Tayyor! ✅\n🔗 Havola: {url}", 
                 reply_markup=builder
             )
-            try:
-                os.remove(file_name)
-            except:
-                pass
+            os.remove(file_name)
             await msg.delete()
             return
         else:
@@ -107,12 +97,12 @@ async def main_handler(message: types.Message):
         except:
             pass
 
-# 2. ODDIY MATN YOKI SO'Z YOZILGANDA OGOHLANTIRISH QISMI
+# 2. ODDIY MATN YOKI SO'Z YOZILGANDA
 @dp.message(F.text)
 async def text_handler(message: types.Message):
     await message.answer("⚠️ Iltimos, YouTube yoki Instagram havolasini (linkini) yuboring!")
 
-# 3. INTERAKTIV AUDIO TUGMASI BOSILGANDA
+# 3. INTERAKTIV AUDIO TUGMASI
 @dp.callback_query(F.data == "find_full")
 async def audio_handler(callback: types.CallbackQuery):
     caption = callback.message.caption
@@ -124,16 +114,11 @@ async def audio_handler(callback: types.CallbackQuery):
     url = clean_url(links[0])
     await callback.answer("Musiqa tayyorlanmoqda... 🎶")
     
-    audio_name = f"a_{callback.from_user.id}_{callback.message.message_id}.mp3"
+    audio_name = f"a_{callback.from_user.id}.mp3"
     audio_opts = {
         **YDL_OPTS,
         'format': 'bestaudio/best',
         'outtmpl': audio_name,
-        'postprocessors': [{
-            'key': 'FFmpegExtractAudio',
-            'preferredcodec': 'mp3',
-            'preferredquality': '192',
-        }],
     }
 
     try:
@@ -146,36 +131,10 @@ async def audio_handler(callback: types.CallbackQuery):
                 filename="music.mp3",
                 caption="Marhamat, musiqaning varianti! 🎵"
             )
-            try:
-                os.remove(audio_name)
-            except:
-                pass
+            os.remove(audio_name)
             return
-        else:
-            raise Exception("Audio fayl topilmadi")
-            
     except Exception:
-        # FFmpeg o'rnatilmagan holat uchun zaxira (konvertatsiyasiz audio formatda yuborish)
-        try:
-            raw_audio_name = f"a_{callback.from_user.id}_{callback.message.message_id}.webm"
-            backup_opts = {
-                **YDL_OPTS,
-                'format': 'bestaudio/best',
-                'outtmpl': raw_audio_name,
-            }
-            with yt_dlp.YoutubeDL(backup_opts) as ydl:
-                ydl.download([url])
-            if os.path.exists(raw_audio_name):
-                await callback.message.answer_audio(
-                    types.FSInputFile(raw_audio_name),
-                    filename="music.mp3",
-                    caption="Marhamat, musiqaning varianti! 🎵"
-                )
-                os.remove(raw_audio_name)
-                return
-        except:
-            pass
-        await callback.message.answer("❌ Musiqa yuklashda xatolik yuz berdi. Bir ozdan keyin qayta urinib ko'ring.")
+        await callback.message.answer("❌ Musiqa yuklashda xatolik yuz berdi.")
 
 async def main():
     await dp.start_polling(bot)
