@@ -19,14 +19,16 @@ YDL_OPTS = {
     'user_agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36',
 }
 
-# === 1. START BUYRUG'I VA ASL DIZAYN ===
-@dp.message(Command("start"))
-async def start_command(message: types.Message):
-    keyboard = types.ReplyKeyboardMarkup(
+# START TUGMASI UCHUN REPLY KLAVIATURA
+def get_start_keyboard():
+    return types.ReplyKeyboardMarkup(
         keyboard=[[types.KeyboardButton(text="🔄 Botni qayta ishga tushirish")]],
         resize_keyboard=True
     )
-    
+
+# === 1. START BUYRUG'I ===
+@dp.message(Command("start"))
+async def start_command(message: types.Message):
     try:
         await message.answer_sticker("CAACAgIAAxkBAAENWpZmGj7l8pZ_u10K7D5vM9zAAUY37AACBwADwDZPE_Yv929zS3vXNAQ")
     except:
@@ -40,11 +42,11 @@ async def start_command(message: types.Message):
         "⚡️ _Tizim sizga video va uning audiosini eng yuqori sifatda taqdim etadi._\n\n"
         "▫️▫️▫️▫️▫️▫️▫️▫️▫️▫️▫️▫️▫️",
         parse_mode="Markdown",
-        reply_markup=keyboard
+        reply_markup=get_start_keyboard()
     )
 
-# === 2. RESTART TUGMASI (TUGMA MATNINI TO'LIQ TEKSHIRISH) ===
-@dp.message(F.text == "🔄 Botni qayta ishga tushirish")
+# === 2. RESTART TUGMASI (ENG YUQORIGA QO'YILDI - METOD ISHLASHI SHART!) ===
+@dp.message(F.text.contains("qayta") | F.text.contains("ishga") | F.text.contains("tushirish"))
 async def restart_button_handler(message: types.Message):
     await start_command(message)
 
@@ -141,14 +143,15 @@ async def audio_handler(callback: types.CallbackQuery):
         print(f"Audio yuklash xatosi: {e}")
         await callback.message.answer("❌ *Kechirasiz, ushbu videoning audio variantini ajratib olish imkoni bo'lmadi.*", parse_mode="Markdown")
 
-# === 5. SHUNCHAKI NOTO'G'RI MATNLAR FILTRI ===
+# === 5. SHUNCHAKI NOTO'G'RI MATNLAR FILTRI (ENG OXIRIGA TUSHIRILDI) ===
 @dp.message()
 async def text_handler(message: types.Message):
     if not message.text:
         return
         
-    # Agar bu start, havola yoki qayta ishga tushirish tugmasi bo'lsa, xato chiqmaydi
-    if message.text == "🔄 Botni qayta ishga tushirish" or any(x in message.text for x in ["instagram.com", "youtube.com", "youtu.be"]):
+    # Agar bu start, havola yoki qayta ishga tushirish tugmasi bo'lsa, bu yerga umuman kirmaydi
+    text_lower = message.text.lower()
+    if any(k in text_lower for k in ["qayta", "ishga", "tushirish"]) or any(x in text_lower for x in ["instagram.com", "youtube.com", "youtu.be"]):
         return
         
     await message.answer(
