@@ -10,18 +10,18 @@ TOKEN = os.getenv("BOT_TOKEN")
 bot = Bot(token=TOKEN)
 dp = Dispatcher()
 
-# Eng barqaror va xavfsiz yt-dlp sozlamalari
+# FFmpeg-siz serverlar uchun eng mustahkam sozlamalar
 YDL_OPTS = {
     'quiet': True,
     'no_warnings': True,
     'nocheckcertificate': True,
-    'user_agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/122.0.0.0 Safari/537.36',
+    'user_agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36',
     'geo_bypass': True,
 }
 
 @dp.message(Command("start"))
 async def start(message: types.Message):
-    # Siz so'ragan bot tagidagi doimiy tugma
+    # Bot tagidagi doimiy tugma
     keyboard = types.ReplyKeyboardMarkup(
         keyboard=[
             [types.KeyboardButton(text="🔄 Botni qayta ishga tushirish")]
@@ -46,10 +46,10 @@ async def main_handler(message: types.Message):
     url = message.text
     msg = await message.answer("Video yuklanmoqda... ⏳")
     
-    # Har bir foydalanuvchi uchun unikal fayl nomi
+    # Har bir yuklash uchun takrorlanmas fayl nomi
     file_name = f"v_{message.from_user.id}_{message.message_id}.mp4"
 
-    # YouTube xavfsizlik tizimidan muammosiz o'tadigan format
+    # FFmpeg talab qilmaydigan va xatolik bermaydigan yagona xavfsiz format
     video_opts = {
         **YDL_OPTS,
         'format': 'best',
@@ -61,7 +61,7 @@ async def main_handler(message: types.Message):
         with yt_dlp.YoutubeDL(video_opts) as ydl:
             ydl.download([url])
         
-        # Ovoz yuklash uchun inline tugma
+        # Ovoz uchun inline tugma
         builder = types.InlineKeyboardMarkup(inline_keyboard=[
             [types.InlineKeyboardButton(text="🎵 Musiqasini yuklab olish", callback_data="find_full")]
         ])
@@ -72,12 +72,7 @@ async def main_handler(message: types.Message):
                 caption=f"Tayyor! ✅\n🔗 Havola: {url}", 
                 reply_markup=builder
             )
-            
-            # Server to'lib qolmasligi uchun videoni darhol o'chiramiz
-            try:
-                os.remove(file_name)
-            except:
-                pass
+            # Diqqat: Videoni serverdan o'chirmaymiz, foydalanuvchi tugmani bossa shu fayldan audio ajratamiz!
     except Exception:
         await message.answer("❌ Video yuklashda xatolik yuz berdi. Link noto'g'ri yoki video juda katta bo'lishi mumkin.")
     finally:
@@ -97,10 +92,25 @@ async def audio_handler(callback: types.CallbackQuery):
     url = links[0]
     await callback.answer("Musiqa tayyorlanmoqda... 🎶")
     
-    # Qo'shiq fayli uchun unikal nom
+    video_file = f"v_{callback.from_user.id}_{callback.message.message_id}.mp4"
     audio_file = f"a_{callback.from_user.id}_{callback.message.message_id}.mp3"
     
-    # Toza audio oqimini yuklash (Ham YouTube, ham Instagram uchun mukammal ishlaydi)
+    # 1-REJA: Agar yuklangan video serverda turgan bo'lsa (Eng xavfsiz yo'l, FFmpeg so'ramaydi)
+    if os.path.exists(video_file):
+        try:
+            await callback.message.answer_audio(
+                types.FSInputFile(video_file, filename="music.mp3"),
+                caption="Marhamat, musiqaning varianti! 🎵"
+            )
+            try:
+                os.remove(video_file) # Ikkala operatsiya bajarilgach server tozalanadi
+            except:
+                pass
+            return
+        except Exception:
+            pass
+
+    # 2-REJA: Agar video tasodifan o'chib ketgan bo'lsa, qayta yuklash tizimi
     audio_opts = {
         **YDL_OPTS,
         'format': 'bestaudio/best',
@@ -111,7 +121,6 @@ async def audio_handler(callback: types.CallbackQuery):
         with yt_dlp.YoutubeDL(audio_opts) as ydl:
             ydl.download([url])
         
-        # Agar yt-dlp boshqa formatda yuklagan bo'lsa, o'sha kengaytmani qidiramiz
         actual_file = audio_file
         if not os.path.exists(actual_file):
             for ext in ['.m4a', '.webm', '.aac', '.mp4']:
@@ -120,7 +129,6 @@ async def audio_handler(callback: types.CallbackQuery):
                     actual_file = possible_file
                     break
 
-        # Fayl topilsa, foydalanuvchiga toza music.mp3 nomi bilan yuboramiz
         if os.path.exists(actual_file):
             await callback.message.answer_audio(
                 types.FSInputFile(actual_file, filename="music.mp3"), 
