@@ -10,7 +10,7 @@ TOKEN = os.getenv("BOT_TOKEN")
 bot = Bot(token=TOKEN)
 dp = Dispatcher()
 
-# Barqaror yuklash sozlamalari
+# Eng xavfsiz yuklash sozlamalari
 YDL_OPTS = {
     'quiet': True,
     'no_warnings': True,
@@ -19,7 +19,7 @@ YDL_OPTS = {
     'user_agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36',
 }
 
-# === 1. START ISHLASHI KAFOLATLANGAN FUNKSIYA ===
+# === 1. START BUYRUG'I VA ASL DIZAYN ===
 @dp.message(Command("start"))
 async def start_command(message: types.Message):
     keyboard = types.ReplyKeyboardMarkup(
@@ -43,9 +43,8 @@ async def start_command(message: types.Message):
         reply_markup=keyboard
     )
 
-# === 2. QAYTA ISHGA TUSHIRISH TUGMASI (ENDI 100% ANIQLIKDA ISHLAYDI) ===
-# Matn ichida 'qayta' yoki 'ishga' so'zi bo'lsa darhol startni chaqiradi, adashib ketmaydi
-@dp.message(lambda msg: msg.text and any(keyword in msg.text.lower() for keyword in ["qayta", "ishga", "tushirish"]))
+# === 2. RESTART TUGMASI (TUGMA MATNINI TO'LIQ TEKSHIRISH) ===
+@dp.message(F.text == "🔄 Botni qayta ishga tushirish")
 async def restart_button_handler(message: types.Message):
     await start_command(message)
 
@@ -148,9 +147,8 @@ async def text_handler(message: types.Message):
     if not message.text:
         return
         
-    # Agarda kelgan matn havola yoki qayta ishga tushirishga tegishli bo'lsa, xato xabari chiqmaydi
-    text_lower = message.text.lower()
-    if any(k in text_lower for k in ["qayta", "ishga", "tushirish"]) or any(x in text_lower for x in ["instagram.com", "youtube.com", "youtu.be"]):
+    # Agar bu start, havola yoki qayta ishga tushirish tugmasi bo'lsa, xato chiqmaydi
+    if message.text == "🔄 Botni qayta ishga tushirish" or any(x in message.text for x in ["instagram.com", "youtube.com", "youtu.be"]):
         return
         
     await message.answer(
