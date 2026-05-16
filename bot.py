@@ -10,18 +10,18 @@ TOKEN = os.getenv("BOT_TOKEN")
 bot = Bot(token=TOKEN)
 dp = Dispatcher()
 
-# Railway serveri uchun eng optimal va xavfsiz sozlamalar
+# Eng barqaror va xavfsiz yt-dlp sozlamalari
 YDL_OPTS = {
     'quiet': True,
     'no_warnings': True,
     'nocheckcertificate': True,
-    'user_agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36',
+    'user_agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/122.0.0.0 Safari/537.36',
     'geo_bypass': True,
 }
 
 @dp.message(Command("start"))
 async def start(message: types.Message):
-    # Pastdagi doimiy start tugmasi
+    # Siz so'ragan bot tagidagi doimiy tugma
     keyboard = types.ReplyKeyboardMarkup(
         keyboard=[
             [types.KeyboardButton(text="🔄 Botni qayta ishga tushirish")]
@@ -31,9 +31,9 @@ async def start(message: types.Message):
 
     await message.answer(
         "✅ **Assalomu alaykum!**\n"
-        "Bu bot @Obidjon_Musurmonov tomonidan qayta optimallashtirildi!\n"
+        "Bu bot @Obidjon_Musurmonov tomonidan yaratildi!\n"
         "YouTube yoki Instagram linkini yuboring.\n"
-        "Men sizga videoni tezkor formatda yuklab beraman.",
+        "Men sizga video va uning audiosini yuklab beraman.",
         reply_markup=keyboard
     )
 
@@ -46,13 +46,13 @@ async def main_handler(message: types.Message):
     url = message.text
     msg = await message.answer("Video yuklanmoqda... ⏳")
     
-    # Unikal fayl nomi
+    # Har bir foydalanuvchi uchun unikal fayl nomi
     file_name = f"v_{message.from_user.id}_{message.message_id}.mp4"
 
-    # YouTube va Instagram uchun eng xavfsiz format kombinatsiyasi
+    # YouTube xavfsizlik tizimidan muammosiz o'tadigan format
     video_opts = {
         **YDL_OPTS,
-        'format': 'best',  # Murakkab filtrlarsiz eng mos keladigan tayyor formatni oladi
+        'format': 'best',
         'outtmpl': file_name
     }
 
@@ -61,7 +61,7 @@ async def main_handler(message: types.Message):
         with yt_dlp.YoutubeDL(video_opts) as ydl:
             ydl.download([url])
         
-        # Ovoz yuklash tugmasi
+        # Ovoz yuklash uchun inline tugma
         builder = types.InlineKeyboardMarkup(inline_keyboard=[
             [types.InlineKeyboardButton(text="🎵 Musiqasini yuklab olish", callback_data="find_full")]
         ])
@@ -72,9 +72,14 @@ async def main_handler(message: types.Message):
                 caption=f"Tayyor! ✅\n🔗 Havola: {url}", 
                 reply_markup=builder
             )
-            # Diqqat: Videoni serverda biroz ushlab turamiz, toki audio tugmasi bosilganda ishlata olsin
-    except Exception as e:
-        await message.answer("❌ Video yuklashda xatolik yuz berdi. Havola noto'g'ri yoki server hozir yuklay olmadi.")
+            
+            # Server to'lib qolmasligi uchun videoni darhol o'chiramiz
+            try:
+                os.remove(file_name)
+            except:
+                pass
+    except Exception:
+        await message.answer("❌ Video yuklashda xatolik yuz berdi. Link noto'g'ri yoki video juda katta bo'lishi mumkin.")
     finally:
         try:
             await msg.delete()
@@ -92,25 +97,10 @@ async def audio_handler(callback: types.CallbackQuery):
     url = links[0]
     await callback.answer("Musiqa tayyorlanmoqda... 🎶")
     
-    video_file = f"v_{callback.from_user.id}_{callback.message.message_id}.mp4"
+    # Qo'shiq fayli uchun unikal nom
     audio_file = f"a_{callback.from_user.id}_{callback.message.message_id}.mp3"
     
-    # 1-REJA: Agar yuklangan video hali serverda turgan bo'lsa (Uni shundoq audio qilib yuboramiz - 100% xatosiz yo'l)
-    if os.path.exists(video_file):
-        try:
-            await callback.message.answer_audio(
-                types.FSInputFile(video_file, filename="music.mp3"),
-                caption="Marhamat, musiqaning varianti! 🎵"
-            )
-            try:
-                os.remove(video_file) # Yuborilgach tozalaymiz
-            except:
-                pass
-            return
-        except Exception:
-            pass
-
-    # 2-REJA: Agar video serverdan o'chib ketgan bo'lsa, audioni qayta yuklash
+    # Toza audio oqimini yuklash (Ham YouTube, ham Instagram uchun mukammal ishlaydi)
     audio_opts = {
         **YDL_OPTS,
         'format': 'bestaudio/best',
@@ -121,7 +111,7 @@ async def audio_handler(callback: types.CallbackQuery):
         with yt_dlp.YoutubeDL(audio_opts) as ydl:
             ydl.download([url])
         
-        # Qo'shaloq kengaytmalarni oldini olish uchun tekshiramiz
+        # Agar yt-dlp boshqa formatda yuklagan bo'lsa, o'sha kengaytmani qidiramiz
         actual_file = audio_file
         if not os.path.exists(actual_file):
             for ext in ['.m4a', '.webm', '.aac', '.mp4']:
@@ -130,6 +120,7 @@ async def audio_handler(callback: types.CallbackQuery):
                     actual_file = possible_file
                     break
 
+        # Fayl topilsa, foydalanuvchiga toza music.mp3 nomi bilan yuboramiz
         if os.path.exists(actual_file):
             await callback.message.answer_audio(
                 types.FSInputFile(actual_file, filename="music.mp3"), 
@@ -142,7 +133,7 @@ async def audio_handler(callback: types.CallbackQuery):
         else:
             await callback.message.answer("❌ Afsuski, musiqani yuklab bo'lmadi.")
     except Exception:
-        await callback.message.answer("❌ Musiqa yuklashda xatolik yuz berdi.")
+        await callback.message.answer("❌ Musiqa yuklashda xatolik yuz berdi. Bir ozdan keyin qayta urinib ko'ring.")
 
 async def main():
     await dp.start_polling(bot)
