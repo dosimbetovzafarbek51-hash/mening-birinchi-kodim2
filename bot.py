@@ -10,20 +10,27 @@ TOKEN = os.getenv("BOT_TOKEN")
 bot = Bot(token=TOKEN)
 dp = Dispatcher()
 
-# Eng xavfsiz va sodda yuklash filtri
+# INSTAGRAM BLOCKLARIDAN O'TISH UCHUN KUCHAYTIRILGAN MOTOR
 YDL_OPTS = {
     'quiet': True,
     'no_warnings': True,
     'nocheckcertificate': True,
     'geo_bypass': True,
-    'format': 'best',
-    'user_agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36'
+    'format': 'best/bestvideo+bestaudio',
+    'extract_flat': False,
+    'skip_download': False,
+    'cachedir': False,
+    'user_agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36',
+    'http_headers': {
+        'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,image/webp,image/apng,*/*;q=0.8',
+        'Accept-Language': 'en-US,en;q=0.9',
+        'Sec-Fetch-Mode': 'navigate',
+    }
 }
 
 def clean_url(url: str) -> str:
-    """Instagram linklaridagi ortiqcha parchalarni tozalash (Hech qanday begona belgilarsiz tozalaydi)"""
+    """Instagram linklaridagi ortiqcha parchalarni tozalash"""
     if "instagram.com" in url:
-        # Link atrofidagi Markdown va ortiqcha belgilarni tozalash uchun filtr kuchaytirildi
         match = re.search(r'(https?://www\.instagram\.com/(?:p|reel|tv)/[^/\s\?*\\]+)', url)
         if match:
             return match.group(1)
@@ -70,7 +77,7 @@ async def handle_media(message: types.Message):
                 [types.InlineKeyboardButton(text="🎵 ⬇️ MUSIQASINI YUKLAB OLISH ⬇️ 🎵", callback_data="get_audio")]
             ])
             
-            # Aynan sizning skrinshotingizdagi chiroyli va qonuniy caption dizayni tiklandi!
+            # Aynan sizning skrinshotingizdagi chiroyli va qonuniy caption dizayni
             caption_text = (
                 f"⚡️ **Muvaffaqiyatli yuklandi!** ✅\n\n"
                 f"🔗 **Havola:** {url}\n\n"
@@ -96,12 +103,12 @@ async def handle_media(message: types.Message):
         except:
             pass
 
-# === 4. AUDIONI AJRATIB OLIB YUBORISH (SOZLANGAN QISM) ===
+# === 4. AUDIONI AJRATIB OLIB YUBORISH ===
 @dp.callback_query(F.data == "get_audio")
 async def handle_audio(callback: types.CallbackQuery):
     caption = callback.message.caption or ""
     
-    # Matn ichidan linkni atrofidagi Markdown (`*`) belgilarisiz toza ajratib olish filtri
+    # Toza linkni ajratib olish (yulduzchasiz)
     links = re.findall(r'(https?://[^\s*?\\#]+)', caption)
     
     if not links:
