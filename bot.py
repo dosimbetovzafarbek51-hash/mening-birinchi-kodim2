@@ -42,7 +42,7 @@ async def start_cmd(message: types.Message):
 async def restart_btn(message: types.Message):
     await start_cmd(message)
 
-# === 3. AUDIONI AJRATIB OLIB YUBORISH (FAQAT SHU QISM MP3 FORMATIGA SOZLANDI) ===
+# === 3. AUDIONI AJRATIB OLIB YUBORISH (FFMPEG TALAB QILMAYDIGAN VARIANT) ===
 @dp.callback_query(F.data == "get_audio")
 async def handle_audio(callback: types.CallbackQuery):
     caption = callback.message.caption or ""
@@ -55,22 +55,16 @@ async def handle_audio(callback: types.CallbackQuery):
     url = clean_url(links[0])
     await callback.answer("🎶 Audio tayyorlanmoqda...")
     
-    # Fayl nomi va saqlash manzili
     file_id = callback.inline_message_id or str(callback.from_user.id)
+    # FFmpeg yo'qligi uchun original m4a formatida yuklab olamiz
     output_filename = f"audio_{file_id}"
-    final_mp3_path = f"{output_filename}.mp3"
+    final_audio_path = f"{output_filename}.m4a"
     
-    # yt-dlp orqali audioni yuklab olish va mp3 ga o'girish sozlamalari
     ydl_opts = {
         'format': 'bestaudio/best',
         'outtmpl': output_filename,
         'quiet': True,
         'no_warnings': True,
-        'postprocessors': [{
-            'key': 'FFmpegExtractAudio',
-            'preferredcodec': 'mp3',
-            'preferredquality': '192',
-        }],
     }
     if os.path.exists('cookies.txt'):
         ydl_opts['cookiefile'] = 'cookies.txt'
@@ -78,12 +72,11 @@ async def handle_audio(callback: types.CallbackQuery):
     try:
         loop = asyncio.get_event_loop()
         with yt_dlp.YoutubeDL(ydl_opts) as ydl:
-            # Faylni yuklab olamiz
             await loop.run_in_executor(None, lambda: ydl.download([url]))
             
-        if os.path.exists(final_mp3_path):
-            # Telegram'ga haqiqiy MP3 fayl ko'rinishida yuboramiz
-            audio_file = FSInputFile(final_mp3_path, filename="music.mp3")
+        if os.path.exists(final_audio_path):
+            # Telegram faylni pleyerda ochishi uchun filename parametriga "music.mp3" deb yozamiz!
+            audio_file = FSInputFile(final_audio_path, filename="music.mp3")
             await callback.message.answer_audio(
                 audio=audio_file,
                 title="Musiqa variant",
@@ -91,18 +84,15 @@ async def handle_audio(callback: types.CallbackQuery):
                 caption="🎵 <b>Siz so'ragan audio variant tayyor!</b> \n\n🎧 <i>Huzur qilib tinglang!</i> ✨",
                 parse_mode="HTML"
             )
-            
-            # Server xotirasini to'ldirmaslik uchun faylni darhol o'chiramiz
-            os.remove(final_mp3_path)
+            os.remove(final_audio_path)
             return
                 
         raise Exception("Audio fayl yaratilmadi")
     except Exception as e:
         print(f"Audio xatosi: {e}")
         await callback.message.answer("❌ <b>Kechirasiz, ushbu videoning audio variantini ajratib olish imkoni bo'lmadi.</b>", parse_mode="HTML")
-        if os.path.exists(final_mp3_path):
-            os.remove(final_mp3_path)
-
+        if os.path.exists(final_audio_path):
+            os.remove(final_audio_path)
 # === 4. HAVOLALARNI TUTIB QOLUVCHI ASOSIY QISM ===
 @dp.message(lambda msg: msg.text and "instagram.com" in msg.text)
 async def handle_media(message: types.Message):
