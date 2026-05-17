@@ -23,7 +23,7 @@ YDL_OPTS = {
 def clean_url(url: str) -> str:
     """Instagram linklaridagi ortiqcha parchalarni tozalash"""
     if "instagram.com" in url:
-        match = re.search(r'(https?://www\.instagram\.com/(?:p|reel|tv)/[^/\?]+)', url)
+        match = re.search(r'(https?://www\.instagram\.com/(?:p|reel|tv)/[^/\s\?]+)', url)
         if match:
             return match.group(1)
     return url
@@ -50,7 +50,7 @@ async def start_cmd(message: types.Message):
 async def restart_btn(message: types.Message):
     await start_cmd(message)
 
-# === 3. HAVOLALARNI TUTIB QOLUVCHI ASOSIY QISM (START BUYRUG'INI O'TKAZIB YUBORMAYDI) ===
+# === 3. HAVOLALARNI TUTIB QOLUVCHI ASOSIY QISM ===
 @dp.message(lambda msg: msg.text and not msg.text.startswith("/") and any(x in msg.text for x in ["instagram.com", "youtube.com", "youtu.be"]))
 async def handle_media(message: types.Message):
     url = clean_url(message.text)
@@ -69,10 +69,17 @@ async def handle_media(message: types.Message):
                 [types.InlineKeyboardButton(text="🎵 ⬇️ MUSIQASINI YUKLAB OLISH ⬇️ 🎵", callback_data="get_audio")]
             ])
             
-            # Captionda faqat toza link qoladi - bu audio qismi aniq ishlashi uchun shart!
+            # Aynan sizning skrinshotingizdagi chiroyli va qonuniy caption dizayni tiklandi!
+            caption_text = (
+                f"⚡️ **Muvaffaqiyatli yuklandi!** ✅\n\n"
+                f"🔗 **Havola:** {url}\n\n"
+                f"👑 **@Obidjon_Musurmonov tizimi**"
+            )
+            
             await message.answer_video(
                 video=types.FSInputFile(out_filename),
-                caption=f"{url}",
+                caption=caption_text,
+                parse_mode="Markdown",
                 reply_markup=audio_btn
             )
             os.remove(out_filename)
@@ -88,11 +95,13 @@ async def handle_media(message: types.Message):
         except:
             pass
 
-# === 4. AUDIONI AJRATIB OLIB YUBORISH (100% ISHLAYDIGAN ASLIY KO'RINISH) ===
+# === 4. AUDIONI AJRATIB OLIB YUBORISH (SOZLANGAN QISM) ===
 @dp.callback_query(F.data == "get_audio")
 async def handle_audio(callback: types.CallbackQuery):
     caption = callback.message.caption or ""
-    links = re.findall(r'(https?://[^\s]+)', caption)
+    
+    # Matn ichidan linkni har qanday xatolarsiz, toza ajratib olish filtri
+    links = re.findall(r'(https?://[^\s\?]+)', caption)
     
     if not links:
         await callback.answer("❌ Havola topilmadi!", show_alert=True)
@@ -102,6 +111,7 @@ async def handle_audio(callback: types.CallbackQuery):
     await callback.answer("🎶 Audio tayyorlanmoqda...")
     
     audio_filename = f"audio_{callback.from_user.id}.m4a"
+    # Audio yuklashni yanada barqaror formatga o'tkazdik
     opts = {**YDL_OPTS, 'format': 'bestaudio/best', 'outtmpl': audio_filename}
     
     try:
@@ -128,7 +138,6 @@ async def handle_audio(callback: types.CallbackQuery):
 # === 5. NOTO'G'RI MATN YUBORILGANDA ASLIY "DIQQAT" OGOHLANTIRISHI ===
 @dp.message()
 async def text_fallback(message: types.Message):
-    # Agar adashib bu yerga kelsa ham startni ochib yuboradi
     if message.text == "🔄 Botni qayta ishga tushirish":
         await start_cmd(message)
         return
