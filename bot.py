@@ -28,7 +28,7 @@ def clean_url(url: str) -> str:
             return match.group(1)
     return url
 
-# === 1. TO'G'RILANGAN START BUYRUG'I (MUALLIF YALTMASI BILAN) ===
+# === 1. ORIGINAL START BUYRUG'I (AYNAN SKRINSHOTDAGI MATN VA TUGMA) ===
 @dp.message(Command("start"))
 async def start_cmd(message: types.Message):
     kb = types.ReplyKeyboardMarkup(
@@ -36,24 +36,19 @@ async def start_cmd(message: types.Message):
         resize_keyboard=True
     )
     await message.answer(
-        "✨ 🚀 *XUSH KELIBSIZ!* 🚀 ✨\n"
-        "▫️▫️▫️▫️▫️▫️▫️▫️▫️▫️▫️▫️▫️\n\n"
-        "🤖 *Ushbu mukammal va tezkor yuklagich bot* @Obidjon_Musurmonov *tomonidan maxsus tayyorlandi.*\n\n"
-        "📥 `Menga faqat Instagram (Reels, Post, TV) havolasini yuboring!`\n"
-        "⚡️ _Tizim sizga video va uning audiosini eng yuqori sifatda taqdim etadi._\n\n"
-        "👑 *Bu bot @Obidjon_Musurmonov tomonidan yaratildi.*\n"
-        "▫️▫️▫️▫️▫️▫️▫️▫️▫️▫️▫️▫️▫️",
-        parse_mode="Markdown",
+        "👋 **Assalomu alaykum!**\n\n"
+        "📥 **Menga Instagram Reels yoki YouTube havolasini yuboring. "
+        "Tizim sizga video va uning audiosini yuklab beradi.**",
         reply_markup=kb
     )
 
-# === 2. RESTART TUGMASI ===
+# === 2. RESTART TUGMASI (TUGMA BOSILGANDA KAFOLATLANGAN START) ===
 @dp.message(F.text == "🔄 Botni qayta ishga tushirish")
 async def restart_btn(message: types.Message):
     await start_cmd(message)
 
-# === 3. HAVOLALARNI TUTIB QOLUVCHI ASOSIY QISM ===
-@dp.message(lambda msg: any(x in msg.text for x in ["instagram.com", "youtube.com", "youtu.be"]) if msg.text else False)
+# === 3. HAVOLALARNI TUTIB QOLUVCHI ASOSIY QISM (START BUYRUG'INI O'TKAZIB YUBORMAYDI) ===
+@dp.message(lambda msg: msg.text and not msg.text.startswith("/") and any(x in msg.text for x in ["instagram.com", "youtube.com", "youtu.be"]))
 async def handle_media(message: types.Message):
     url = clean_url(message.text)
     status_msg = await message.answer("⏳ `So'rov qabul qilindi. Media yuklanmoqda...`", parse_mode="Markdown")
@@ -66,10 +61,12 @@ async def handle_media(message: types.Message):
             ydl.download([url])
         
         if os.path.exists(out_filename):
+            # ORIGINAL INLINE TUGMA
             audio_btn = types.InlineKeyboardMarkup(inline_keyboard=[
                 [types.InlineKeyboardButton(text="🎵 ⬇️ MUSIQASINI YUKLAB OLISH ⬇️ 🎵", callback_data="get_audio")]
             ])
             
+            # Captionda faqat toza link qoladi - bu audio qismi aniq ishlashi uchun shart!
             await message.answer_video(
                 video=types.FSInputFile(out_filename),
                 caption=f"{url}",
@@ -88,7 +85,7 @@ async def handle_media(message: types.Message):
         except:
             pass
 
-# === 4. AUDIONI AJRATIB OLIB YUBORISH ===
+# === 4. AUDIONI AJRATIB OLIB YUBORISH (100% ISHLAYDIGAN ASLIY KO'RINISH) ===
 @dp.callback_query(F.data == "get_audio")
 async def handle_audio(callback: types.CallbackQuery):
     caption = callback.message.caption or ""
@@ -109,6 +106,7 @@ async def handle_audio(callback: types.CallbackQuery):
             ydl.download([url])
             
         if os.path.exists(audio_filename):
+            # ORIGINAL AUDIO MATNI
             await callback.message.answer_audio(
                 audio=types.FSInputFile(audio_filename),
                 filename="music.mp3",
@@ -124,16 +122,18 @@ async def handle_audio(callback: types.CallbackQuery):
         print(f"Audio xatosi: {e}")
         await callback.message.answer("❌ **Kechirasiz, ushbu videoning audio variantini ajratib olish imkoni bo'lmadi.**", parse_mode="Markdown")
 
-# === 5. NOTO'G'RI MATN FILTRI ===
+# === 5. NOTO'G'RI MATN YUBORILGANDA ASLIY "DIQQAT" OGOHLANTIRISHI ===
 @dp.message()
 async def text_fallback(message: types.Message):
+    # Agar adashib bu yerga kelsa ham startni ochib yuboradi
     if message.text == "🔄 Botni qayta ishga tushirish":
         await start_cmd(message)
         return
+        
     await message.answer(
         "🚨 ▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬ 🚨\n"
         "⚠️ *DIQQAT:* `Noto'g'ri buyruq kiritildi!`\n\n"
-        "📥 _Iltimos, faqat to'g'ri va ishlaydigan_ *Instagram** _havolasini (linkini) yuboring!_\n"
+        "📥 _Iltimos, faqat to'g'ri va ishlaydigan_ *Instagram* _havolasini (linkini) yuboring!_\n"
         "🚨 ▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬ 🚨",
         parse_mode="Markdown"
     )
