@@ -41,7 +41,6 @@ async def start_cmd(message: types.Message):
         "🤖 *Ushbu mukammal va tezkor yuklagich bot* @Obidjon_Musurmonov *tomonidan maxsus tayyorlandi.*\n\n"
         "📥 `Menga faqat Instagram (Reels, Post, TV) havolasini yuboring!`\n"
         "⚡️ _Tizim sizga video va uning audiosini eng yuqori sifatda taqdim etadi._\n\n"
-        "👑 *Bu bot @Obidjon_Musurmonov tomonidan yaratildi.*\n"
         "▫️▫️▫️▫️▫️▫️▫️▫️▫️▫️▫️▫️▫️",
         reply_markup=kb
     )
