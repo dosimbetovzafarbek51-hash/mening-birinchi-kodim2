@@ -3,6 +3,7 @@ import os
 import re
 from aiogram import Bot, Dispatcher, types, F
 from aiogram.filters import Command
+from aiogram.types import BufferedInputFile
 import yt_dlp
 
 # Token va Bot sozlamalari
@@ -18,7 +19,7 @@ def clean_url(url: str) -> str:
             return match.group(1)
     return url
 
-# === 1. START BUYRUG'I (ENG TEPADA TURISHI SHART) ===
+# === 1. START BUYRUG'I ===
 @dp.message(Command("start"))
 async def start_cmd(message: types.Message):
     kb = types.ReplyKeyboardMarkup(
@@ -41,7 +42,7 @@ async def start_cmd(message: types.Message):
 async def restart_btn(message: types.Message):
     await start_cmd(message)
 
-# === 3. AUDIONI AJRATIB OLIB YUBORISH ===
+# === 3. AUDIONI AJRATIB OLIB YUBORISH (FAQAT SHU QISM AUDIO SHAKLIGA SOZLANDI) ===
 @dp.callback_query(F.data == "get_audio")
 async def handle_audio(callback: types.CallbackQuery):
     caption = callback.message.caption or ""
@@ -69,11 +70,12 @@ async def handle_audio(callback: types.CallbackQuery):
             audio_url = info.get('url')
             
             if audio_url:
+                # Telegram audio formatini to'g'ri tanishi uchun uni musiqiy havola sifatida yuboramosiz
+                # URL orqali to'g'ridan-to'g'ri yuborishda muammo bo'lmasligi uchun havolani audio parametriga joylaymiz
                 await callback.message.answer_audio(
                     audio=audio_url,
-                    filename="music.mp3",
-                    title="music",
-                    performer="Bot Yuklovchi",
+                    title="Musiqa variant",
+                    performer="Instagram Downloader",
                     caption="🎵 <b>Siz so'ragan audio variant tayyor!</b> \n\n🎧 <i>Huzur qilib tinglang!</i> ✨",
                     parse_mode="HTML"
                 )
@@ -109,7 +111,6 @@ async def handle_media(message: types.Message):
                     [types.InlineKeyboardButton(text="🎵 ⬇️ MUSIQASINI YUKLAB OLISH ⬇️ 🎵", callback_data="get_audio")]
                 ])
                 
-                # HTML formatiga o'tkazilgan caption matni
                 caption_text = (
                     f"⚡️ <b>Muvaffaqiyatli yuklandi!</b> ✅\n\n"
                     f"🔗 <b>Havola:</b> {url}\n\n"
@@ -129,7 +130,6 @@ async def handle_media(message: types.Message):
                 
     except Exception as e:
         print(f"Yuklash xatosi: {e}")
-        # Xatolik matnini xavfsiz stringga o'giramiz
         error_msg = str(e)[:50].replace("<", "&lt;").replace(">", "&gt;")
         await message.answer(f"❌ <b>YUKLASHDA XATOLIK YUZ BERDI!</b>\n\n⚠️ <i>Tizim xatosi: {error_msg}</i>", parse_mode="HTML")
         try:
@@ -137,7 +137,7 @@ async def handle_media(message: types.Message):
         except:
             pass
 
-# === 5. NOTO'G'RI MATN FILTRI (ENG PASDA TURISHI SHART) ===
+# === 5. NOTO'G'RI MATN FILTRI ===
 @dp.message()
 async def text_fallback(message: types.Message):
     await message.answer(
