@@ -76,8 +76,8 @@ async def handle_audio(callback: types.CallbackQuery):
                 
                 await callback.message.answer_audio(
                     audio=audio_file,
-                    title="Musiqa variant",
-                    performer="Instagram Downloader",
+                    title="mp3",
+                    performer="Music",
                     caption="🎵 <b>Siz so'ragan audio variant tayyor!</b> \n\n🎧 <i>Huzur qilib tinglang!</i> ✨",
                     parse_mode="HTML"
                 )
