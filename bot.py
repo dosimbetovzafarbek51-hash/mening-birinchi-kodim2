@@ -12,13 +12,13 @@ dp = Dispatcher()
 
 def clean_url(url: str) -> str:
     """Instagram linklaridagi ortiqcha parchalarni tozalash"""
-    if "instagram.com" in url:
+    if url and "instagram.com" in url:
         match = re.search(r'(https?://(?:www\.)?instagram\.com/(?:p|reel|tv)/[^/\s\?]+)', url)
         if match:
             return match.group(1)
     return url
 
-# === 1. ORIGINAL START BUYRUG'I ===
+# === 1. START BUYRUG'I (ENG TEPADA TURISHI SHART) ===
 @dp.message(Command("start"))
 async def start_cmd(message: types.Message):
     kb = types.ReplyKeyboardMarkup(
@@ -41,59 +41,7 @@ async def start_cmd(message: types.Message):
 async def restart_btn(message: types.Message):
     await start_cmd(message)
 
-# === 3. HAVOLALARNI TUTIB QOLUVCHI ASOSIY QISM (YT-DLP REJIMIDA) ===
-@dp.message(lambda msg: msg.text and "instagram.com" in msg.text)
-async def handle_media(message: types.Message):
-    url = clean_url(message.text)
-    status_msg = await message.answer("⏳ `So'rov qabul qilindi. Media yuklanmoqda...`", parse_mode="Markdown")
-    
-    # yt-dlp orqali to'g'ridan-to'g'ri Instagram'dan video manzilini ajratib olish
-    ydl_opts = {
-        'format': 'bestvideo+bestaudio/best',
-        'quiet': True,
-        'no_warnings': True,
-    }
-    
-    try:
-        # Bloklab qo'ymasligi uchun asyncio executor ichida ishga tushiramiz
-        loop = asyncio.get_event_loop()
-        with yt_dlp.YoutubeDL(ydl_opts) as ydl:
-            info = await loop.run_in_executor(None, lambda: ydl.extract_info(url, download=False))
-            
-            video_url = info.get('url')
-            
-            if video_url:
-                # ORIGINAL INLINE TUGMA (Sizning sobiq tugmangiz)
-                audio_btn = types.InlineKeyboardMarkup(inline_keyboard=[
-                    [types.InlineKeyboardButton(text="🎵 ⬇️ MUSIQASINI YUKLAB OLISH ⬇️ 🎵", callback_data="get_audio")]
-                ])
-                
-                caption_text = (
-                    f"⚡️ **Muvaffaqiyatli yuklandi!** ✅\n\n"
-                    f"🔗 **Havola:** {url}\n\n"
-                    f"👑 **@Obidjon_Musurmonov tizimi**"
-                )
-                
-                await message.answer_video(
-                    video=video_url,
-                    caption=caption_text,
-                    parse_mode="Markdown",
-                    reply_markup=audio_btn
-                )
-                await status_msg.delete()
-                return
-            
-        raise Exception("Video topilmadi")
-                
-    except Exception as e:
-        print(f"Yuklash xatosi: {e}")
-        await message.answer("❌ **YUKLASHDA XATOLIK YUZ BERDI!**\n\n⚠️ _Havola noto'g'ri, video yopiq yoki o'ta katta bo'lishi mumkin._", parse_mode="Markdown")
-        try:
-            await status_msg.delete()
-        except:
-            pass
-
-# === 4. AUDIONI AJRATIB OLIB YUBORISH ===
+# === 3. AUDIONI AJRATIB OLIB YUBORISH (CALLBACK) ===
 @dp.callback_query(F.data == "get_audio")
 async def handle_audio(callback: types.CallbackQuery):
     caption = callback.message.caption or ""
@@ -111,6 +59,8 @@ async def handle_audio(callback: types.CallbackQuery):
         'quiet': True,
         'no_warnings': True,
     }
+    if os.path.exists('cookies.txt'):
+        ydl_opts['cookiefile'] = 'cookies.txt'
     
     try:
         loop = asyncio.get_event_loop()
@@ -134,13 +84,59 @@ async def handle_audio(callback: types.CallbackQuery):
         print(f"Audio xatosi: {e}")
         await callback.message.answer("❌ **Kechirasiz, ushbu videoning audio variantini ajratib olish imkoni bo'lmadi.**", parse_mode="Markdown")
 
-# === 5. NOTO'G'RI MATN FILTRI ===
+# === 4. FAQAT INSTAGRAM HAVOLALARINI QABUL QILUVCHI FILTR ===
+@dp.message(lambda msg: msg.text and "instagram.com" in msg.text)
+async def handle_media(message: types.Message):
+    url = clean_url(message.text)
+    status_msg = await message.answer("⏳ `So'rov qabul qilindi. Media yuklanmoqda...`", parse_mode="Markdown")
+    
+    ydl_opts = {
+        'format': 'best',
+        'quiet': True,
+        'no_warnings': True,
+    }
+    if os.path.exists('cookies.txt'):
+        ydl_opts['cookiefile'] = 'cookies.txt'
+    
+    try:
+        loop = asyncio.get_event_loop()
+        with yt_dlp.YoutubeDL(ydl_opts) as ydl:
+            info = await loop.run_in_executor(None, lambda: ydl.extract_info(url, download=False))
+            video_url = info.get('url')
+            
+            if video_url:
+                audio_btn = types.InlineKeyboardMarkup(inline_keyboard=[
+                    [types.InlineKeyboardButton(text="🎵 ⬇️ MUSIQASINI YUKLAB OLISH ⬇️ 🎵", callback_data="get_audio")]
+                ])
+                
+                caption_text = (
+                    f"⚡️ **Muvaffaqiyatli yuklandi!** ✅\n\n"
+                    f"🔗 **Havola:** {url}\n\n"
+                    f"👑 **@Obidjon_Musurmonov tizimi**"
+                )
+                
+                await message.answer_video(
+                    video=video_url,
+                    caption=caption_text,
+                    parse_mode="Markdown",
+                    reply_markup=audio_btn
+                )
+                await status_msg.delete()
+                return
+            
+        raise Exception("Video manzili bo'sh qaytdi")
+                
+    except Exception as e:
+        print(f"Yuklash xatosi: {e}")
+        await message.answer(f"❌ **YUKLASHDA XATOLIK YUZ BERDI!**\n\n⚠️ _Tizim xatosi: {str(e)[:50]}_", parse_mode="Markdown")
+        try:
+            await status_msg.delete()
+        except:
+            pass
+
+# === 5. BOSHQA HAR QANDAY NOTO'G'RI MATNLAR UCHUN (ENG PASDA TURISHI SHART) ===
 @dp.message()
 async def text_fallback(message: types.Message):
-    if message.text == "🔄 Botni qayta ishga tushirish":
-        await start_cmd(message)
-        return
-        
     await message.answer(
         "🚨 ▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬ 🚨\n"
         "⚠️ *DIQQAT:* `Noto'g'ri buyruq kiritildi!`\n\n"
