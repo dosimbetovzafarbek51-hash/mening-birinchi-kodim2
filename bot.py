@@ -36,9 +36,13 @@ async def start_cmd(message: types.Message):
         resize_keyboard=True
     )
     await message.answer(
-        "👋 **Assalomu alaykum!**\n\n"
-        "📥 **Menga Instagram Reels yoki YouTube havolasini yuboring. "
-        "Tizim sizga video va uning audiosini yuklab beradi.**",
+        "✨ 🚀 *XUSH KELIBSIZ!* 🚀 ✨\n"
+        "▫️▫️▫️▫️▫️▫️▫️▫️▫️▫️▫️▫️▫️\n\n"
+        "🤖 *Ushbu mukammal va tezkor yuklagich bot* @Obidjon_Musurmonov *tomonidan maxsus tayyorlandi.*\n\n"
+        "📥 `Menga faqat Instagram (Reels, Post, TV) havolasini yuboring!`\n"
+        "⚡️ _Tizim sizga video va uning audiosini eng yuqori sifatda taqdim etadi._\n\n"
+        "👑 *Bu bot @Obidjon_Musurmonov tomonidan yaratildi.*\n"
+        "▫️▫️▫️▫️▫️▫️▫️▫️▫️▫️▫️▫️▫️",
         reply_markup=kb
     )
 
