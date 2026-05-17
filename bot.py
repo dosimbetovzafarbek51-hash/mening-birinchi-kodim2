@@ -16,7 +16,7 @@ YDL_OPTS = {
     'no_warnings': True,
     'nocheckcertificate': True,
     'geo_bypass': True,
-    'format': 'best',  # Murakkab formatlardan voz kechib, eng barqarorini tanlaymiz
+    'format': 'best',
     'user_agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36'
 }
 
@@ -28,6 +28,7 @@ def clean_url(url: str) -> str:
             return match.group(1)
     return url
 
+# === 1. TO'G'RILANGAN START BUYRUG'I (MUALLIF YALTMASI BILAN) ===
 @dp.message(Command("start"))
 async def start_cmd(message: types.Message):
     kb = types.ReplyKeyboardMarkup(
@@ -40,17 +41,18 @@ async def start_cmd(message: types.Message):
         "🤖 *Ushbu mukammal va tezkor yuklagich bot* @Obidjon_Musurmonov *tomonidan maxsus tayyorlandi.*\n\n"
         "📥 `Menga faqat Instagram (Reels, Post, TV) havolasini yuboring!`\n"
         "⚡️ _Tizim sizga video va uning audiosini eng yuqori sifatda taqdim etadi._\n\n"
+        "👑 *Bu bot @Obidjon_Musurmonov tomonidan yaratildi.*\n"
         "▫️▫️▫️▫️▫️▫️▫️▫️▫️▫️▫️▫️▫️",
         parse_mode="Markdown",
         reply_markup=kb
     )
 
-# Qayta ishga tushirish tugmasi uchun aniq filtr (Endi startni chaqiradi!)
+# === 2. RESTART TUGMASI ===
 @dp.message(F.text == "🔄 Botni qayta ishga tushirish")
 async def restart_btn(message: types.Message):
     await start_cmd(message)
 
-# Havolalarni tutib qoluvchi asosiy qism (Sizning ishlayotgan kodingiz)
+# === 3. HAVOLALARNI TUTIB QOLUVCHI ASOSIY QISM ===
 @dp.message(lambda msg: any(x in msg.text for x in ["instagram.com", "youtube.com", "youtu.be"]) if msg.text else False)
 async def handle_media(message: types.Message):
     url = clean_url(message.text)
@@ -60,19 +62,17 @@ async def handle_media(message: types.Message):
     opts = {**YDL_OPTS, 'outtmpl': out_filename}
     
     try:
-        # Yuklash jarayoni
         with yt_dlp.YoutubeDL(opts) as ydl:
             ydl.download([url])
         
         if os.path.exists(out_filename):
-            # Audio tugmachasi
             audio_btn = types.InlineKeyboardMarkup(inline_keyboard=[
-                [types.InlineKeyboardButton(text="🎵 MP3 shaklini yuklab olish", callback_data="get_audio")]
+                [types.InlineKeyboardButton(text="🎵 ⬇️ MUSIQASINI YUKLAB OLISH ⬇️ 🎵", callback_data="get_audio")]
             ])
             
             await message.answer_video(
                 video=types.FSInputFile(out_filename),
-                caption=f"{url}",  # Link o'z holida qoldi, audio buzilmaydi!
+                caption=f"{url}",
                 reply_markup=audio_btn
             )
             os.remove(out_filename)
@@ -82,13 +82,13 @@ async def handle_media(message: types.Message):
             
     except Exception as e:
         print(f"Xatolik yuz berdi: {e}")
-        await message.answer("❌ **Yuklashda xatolik yuz berdi!**\n\n_Iltimos, havola to'g'riligini yoki profil ochiqligini tekshiring._", parse_mode="Markdown")
+        await message.answer("❌ **YUKLASHDA XATOLIK YUZ BERDI!**\n\n⚠️ _Havola noto'g'ri, video yopiq yoki o'ta katta bo'lishi mumkin._", parse_mode="Markdown")
         try:
             await status_msg.delete()
         except:
             pass
 
-# Audioni ajratib olib yuborish (Sizning ishlayotgan kodingiz)
+# === 4. AUDIONI AJRATIB OLIB YUBORISH ===
 @dp.callback_query(F.data == "get_audio")
 async def handle_audio(callback: types.CallbackQuery):
     caption = callback.message.caption or ""
@@ -114,7 +114,7 @@ async def handle_audio(callback: types.CallbackQuery):
                 filename="music.mp3",
                 title="music",
                 performer="Bot Yuklovchi",
-                caption="🎵 **Musiqa mp3 formatda tayyorlandi!**",
+                caption="🎵 **Siz so'ragan audio variant tayyor!** \n\n🎧 _Huzur qilib tinglang!_ ✨",
                 parse_mode="Markdown"
             )
             os.remove(audio_filename)
@@ -122,15 +122,21 @@ async def handle_audio(callback: types.CallbackQuery):
             raise Exception("Audio fayl topilmadi")
     except Exception as e:
         print(f"Audio xatosi: {e}")
-        await callback.message.answer("❌ **Kechirasiz, audioni ajratib olishda xatolik bo'ldi.**", parse_mode="Markdown")
+        await callback.message.answer("❌ **Kechirasiz, ushbu videoning audio variantini ajratib olish imkoni bo'lmadi.**", parse_mode="Markdown")
 
-# Noto'g'ri matn yuborilganda
+# === 5. NOTO'G'RI MATN FILTRI ===
 @dp.message()
 async def text_fallback(message: types.Message):
     if message.text == "🔄 Botni qayta ishga tushirish":
-        await start_cmd(message)  # Shunchaki return emas, endi startni ochadi!
+        await start_cmd(message)
         return
-    await message.answer("⚠️ **Iltimos, faqat to'g'ri Instagram yoki YouTube havolasini yuboring!**")
+    await message.answer(
+        "🚨 ▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬ 🚨\n"
+        "⚠️ *DIQQAT:* `Noto'g'ri buyruq kiritildi!`\n\n"
+        "📥 _Iltimos, faqat to'g'ri va ishlaydigan_ *Instagram** _havolasini (linkini) yuboring!_\n"
+        "🚨 ▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬ 🚨",
+        parse_mode="Markdown"
+    )
 
 async def main():
     await dp.start_polling(bot)
