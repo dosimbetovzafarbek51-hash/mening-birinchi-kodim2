@@ -3,7 +3,6 @@ import os
 import re
 from aiogram import Bot, Dispatcher, types, F
 from aiogram.filters import Command
-from aiogram.types import FSInputFile
 import yt_dlp
 
 # Token va Bot sozlamalari
@@ -42,7 +41,7 @@ async def start_cmd(message: types.Message):
 async def restart_btn(message: types.Message):
     await start_cmd(message)
 
-# === 3. AUDIONI AJRATIB OLIB YUBORISH (FFMPEG TALAB QILMAYDIGAN VARIANT) ===
+# === 3. AUDIONI AJRATIB OLIB YUBORISH (ENG ISHONCHLI XAFSIZ VARIANT) ===
 @dp.callback_query(F.data == "get_audio")
 async def handle_audio(callback: types.CallbackQuery):
     caption = callback.message.caption or ""
@@ -55,14 +54,9 @@ async def handle_audio(callback: types.CallbackQuery):
     url = clean_url(links[0])
     await callback.answer("🎶 Audio tayyorlanmoqda...")
     
-    file_id = callback.inline_message_id or str(callback.from_user.id)
-    # FFmpeg yo'qligi uchun original m4a formatida yuklab olamiz
-    output_filename = f"audio_{file_id}"
-    final_audio_path = f"{output_filename}.m4a"
-    
+    # Serverga hech narsa yuklamasdan faqat audio havolasini olish sozlamasi
     ydl_opts = {
         'format': 'bestaudio/best',
-        'outtmpl': output_filename,
         'quiet': True,
         'no_warnings': True,
     }
@@ -72,27 +66,28 @@ async def handle_audio(callback: types.CallbackQuery):
     try:
         loop = asyncio.get_event_loop()
         with yt_dlp.YoutubeDL(ydl_opts) as ydl:
-            await loop.run_in_executor(None, lambda: ydl.download([url]))
+            info = await loop.run_in_executor(None, lambda: ydl.extract_info(url, download=False))
+            audio_url = info.get('url')
             
-        if os.path.exists(final_audio_path):
-            # Telegram faylni pleyerda ochishi uchun filename parametriga "music.mp3" deb yozamiz!
-            audio_file = FSInputFile(final_audio_path, filename="music.mp3")
-            await callback.message.answer_audio(
-                audio=audio_file,
-                title="Musiqa variant",
-                performer="Instagram Downloader",
-                caption="🎵 <b>Siz so'ragan audio variant tayyor!</b> \n\n🎧 <i>Huzur qilib tinglang!</i> ✨",
-                parse_mode="HTML"
-            )
-            os.remove(final_audio_path)
-            return
+            if audio_url:
+                # URL orqali yuborilganda ham Telegram uni musiqa pleyerida ochishi uchun 
+                # types.URLInputFile dan foydalanamiz va filename ga majburlab .mp3 formatini beramiz!
+                audio_file = types.URLInputFile(audio_url, filename="music.mp3")
                 
-        raise Exception("Audio fayl yaratilmadi")
+                await callback.message.answer_audio(
+                    audio=audio_file,
+                    title="Musiqa variant",
+                    performer="Instagram Downloader",
+                    caption="🎵 <b>Siz so'ragan audio variant tayyor!</b> \n\n🎧 <i>Huzur qilib tinglang!</i> ✨",
+                    parse_mode="HTML"
+                )
+                return
+                
+        raise Exception("Audio topilmadi")
     except Exception as e:
         print(f"Audio xatosi: {e}")
         await callback.message.answer("❌ <b>Kechirasiz, ushbu videoning audio variantini ajratib olish imkoni bo'lmadi.</b>", parse_mode="HTML")
-        if os.path.exists(final_audio_path):
-            os.remove(final_audio_path)
+
 # === 4. HAVOLALARNI TUTIB QOLUVCHI ASOSIY QISM ===
 @dp.message(lambda msg: msg.text and "instagram.com" in msg.text)
 async def handle_media(message: types.Message):
