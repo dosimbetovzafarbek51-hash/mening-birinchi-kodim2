@@ -1,9 +1,9 @@
 import asyncio
 import os
 import re
-import aiohttp
 from aiogram import Bot, Dispatcher, types, F
 from aiogram.filters import Command
+import yt_dlp
 
 # Token va Bot sozlamalari
 TOKEN = os.getenv("BOT_TOKEN")
@@ -13,7 +13,6 @@ dp = Dispatcher()
 def clean_url(url: str) -> str:
     """Instagram linklaridagi ortiqcha parchalarni tozalash"""
     if "instagram.com" in url:
-        # Linkni toza holatga keltirish (Query parametrlarsiz)
         match = re.search(r'(https?://(?:www\.)?instagram\.com/(?:p|reel|tv)/[^/\s\?]+)', url)
         if match:
             return match.group(1)
@@ -42,61 +41,52 @@ async def start_cmd(message: types.Message):
 async def restart_btn(message: types.Message):
     await start_cmd(message)
 
-# === 3. HAVOLALARNI TUTIB QOLUVCHI ASOSIY QISM ===
+# === 3. HAVOLALARNI TUTIB QOLUVCHI ASOSIY QISM (YT-DLP REJIMIDA) ===
 @dp.message(lambda msg: msg.text and "instagram.com" in msg.text)
 async def handle_media(message: types.Message):
     url = clean_url(message.text)
     status_msg = await message.answer("⏳ `So'rov qabul qilindi. Media yuklanmoqda...`", parse_mode="Markdown")
     
-    api_url = f"https://api.scraptik.com/instagram/downloader?url={url}"
+    # yt-dlp orqali to'g'ridan-to'g'ri Instagram'dan video manzilini ajratib olish
+    ydl_opts = {
+        'format': 'bestvideo+bestaudio/best',
+        'quiet': True,
+        'no_warnings': True,
+    }
     
     try:
-        async with aiohttp.ClientSession() as session:
-            async with session.get(api_url) as response:
-                if response.status != 200:
-                    raise Exception(f"API xatosi, status kod: {response.status}")
+        # Bloklab qo'ymasligi uchun asyncio executor ichida ishga tushiramiz
+        loop = asyncio.get_event_loop()
+        with yt_dlp.YoutubeDL(ydl_opts) as ydl:
+            info = await loop.run_in_executor(None, lambda: ydl.extract_info(url, download=False))
+            
+            video_url = info.get('url')
+            
+            if video_url:
+                # ORIGINAL INLINE TUGMA (Sizning sobiq tugmangiz)
+                audio_btn = types.InlineKeyboardMarkup(inline_keyboard=[
+                    [types.InlineKeyboardButton(text="🎵 ⬇️ MUSIQASINI YUKLAB OLISH ⬇️ 🎵", callback_data="get_audio")]
+                ])
                 
-                res_json = await response.json()
+                caption_text = (
+                    f"⚡️ **Muvaffaqiyatli yuklandi!** ✅\n\n"
+                    f"🔗 **Havola:** {url}\n\n"
+                    f"👑 **@Obidjon_Musurmonov tizimi**"
+                )
                 
-                # API statusini tekshirish
-                if res_json.get("status") is True and "data" in res_json:
-                    media_data = res_json["data"]
-                    video_url = None
-                    
-                    # API har xil formatda qaytarishi mumkinligini hisobga olamiz:
-                    if isinstance(media_data, list) and len(media_data) > 0:
-                        # Agar ro'yxat bo'lsa birinchisini tekshiramiz
-                        video_url = media_data[0].get("url") or media_data[0].get("video_url") or media_data[0].get("download_url")
-                    elif isinstance(media_data, dict):
-                        # Agar obyekt bo'lsa
-                        video_url = media_data.get("video_url") or media_data.get("url") or media_data.get("download_url")
-                    
-                    if video_url:
-                        # ORIGINAL INLINE TUGMA
-                        audio_btn = types.InlineKeyboardMarkup(inline_keyboard=[
-                            [types.InlineKeyboardButton(text="🎵 ⬇️ MUSIQASINI YUKLAB OLISH ⬇️ 🎵", callback_data="get_audio")]
-                        ])
-                        
-                        caption_text = (
-                            f"⚡️ **Muvaffaqiyatli yuklandi!** ✅\n\n"
-                            f"🔗 **Havola:** {url}\n\n"
-                            f"👑 **@Obidjon_Musurmonov tizimi**"
-                        )
-                        
-                        await message.answer_video(
-                            video=video_url,
-                            caption=caption_text,
-                            parse_mode="Markdown",
-                            reply_markup=audio_btn
-                        )
-                        await status_msg.delete()
-                        return  # Muvaffaqiyatli tugatilganda funksiyadan chiqamiz
-                    
-                # Agar if shartlariga kirmasa, demak video topilmadi
-                raise Exception("Video havolasi API'dan topilmadi")
+                await message.answer_video(
+                    video=video_url,
+                    caption=caption_text,
+                    parse_mode="Markdown",
+                    reply_markup=audio_btn
+                )
+                await status_msg.delete()
+                return
+            
+        raise Exception("Video topilmadi")
                 
     except Exception as e:
-        print(f"Xatolik yuz berdi: {e}")
+        print(f"Yuklash xatosi: {e}")
         await message.answer("❌ **YUKLASHDA XATOLIK YUZ BERDI!**\n\n⚠️ _Havola noto'g'ri, video yopiq yoki o'ta katta bo'lishi mumkin._", parse_mode="Markdown")
         try:
             await status_msg.delete()
@@ -116,34 +106,30 @@ async def handle_audio(callback: types.CallbackQuery):
     url = clean_url(links[0])
     await callback.answer("🎶 Audio tayyorlanmoqda...")
     
-    api_url = f"https://api.scraptik.com/instagram/downloader?url={url}"
+    ydl_opts = {
+        'format': 'bestaudio/best',
+        'quiet': True,
+        'no_warnings': True,
+    }
     
     try:
-        async with aiohttp.ClientSession() as session:
-            async with session.get(api_url) as response:
-                if response.status == 200:
-                    res_json = await response.json()
-                    if res_json.get("status") is True and "data" in res_json:
-                        media_data = res_json["data"]
-                        audio_url = None
-                        
-                        if isinstance(media_data, list) and len(media_data) > 0:
-                            audio_url = media_data[0].get("audio") or media_data[0].get("audio_url")
-                        elif isinstance(media_data, dict):
-                            audio_url = media_data.get("audio_url") or media_data.get("audio")
-                        
-                        if audio_url:
-                            await callback.message.answer_audio(
-                                audio=audio_url,
-                                filename="music.mp3",
-                                title="music",
-                                performer="Bot Yuklovchi",
-                                caption="🎵 **Siz so'ragan audio variant tayyor!** \n\n🎧 _Huzur qilib tinglang!_ ✨",
-                                parse_mode="Markdown"
-                            )
-                            return
-                            
-                raise Exception("Audio topilmadi")
+        loop = asyncio.get_event_loop()
+        with yt_dlp.YoutubeDL(ydl_opts) as ydl:
+            info = await loop.run_in_executor(None, lambda: ydl.extract_info(url, download=False))
+            audio_url = info.get('url')
+            
+            if audio_url:
+                await callback.message.answer_audio(
+                    audio=audio_url,
+                    filename="music.mp3",
+                    title="music",
+                    performer="Bot Yuklovchi",
+                    caption="🎵 **Siz so'ragan audio variant tayyor!** \n\n🎧 _Huzur qilib tinglang!_ ✨",
+                    parse_mode="Markdown"
+                )
+                return
+                
+        raise Exception("Audio topilmadi")
     except Exception as e:
         print(f"Audio xatosi: {e}")
         await callback.message.answer("❌ **Kechirasiz, ushbu videoning audio variantini ajratib olish imkoni bo'lmadi.**", parse_mode="Markdown")
