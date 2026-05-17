@@ -26,14 +26,14 @@ async def start_cmd(message: types.Message):
         resize_keyboard=True
     )
     await message.answer(
-        "✨ 🚀 *XUSH KELIBSIZ!* 🚀 ✨\n"
+        "✨ 🚀 <b>XUSH KELIBSIZ!</b> 🚀 ✨\n"
         "▫️▫️▫️▫️▫️▫️▫️▫️▫️▫️▫️▫️▫️\n\n"
-        "🤖 *Ushbu mukammal va tezkor yuklagich bot* @Obidjon_Musurmonov *tomonidan maxsus tayyorlandi.*\n\n"
-        "📥 `Menga faqat Instagram (Reels, Post, TV) havolasini yuboring!`\n"
-        "⚡️ _Tizim sizga video va uning audiosini eng yuqori sifatda taqdim etadi._\n\n"
+        "🤖 <b>Ushbu mukammal va tezkor yuklagich bot</b> @Obidjon_Musurmonov <b>tomonidan maxsus tayyorlandi.</b>\n\n"
+        "📥 <code>Menga faqat Instagram (Reels, Post, TV) havolasini yuboring!</code>\n"
+        "⚡️ <i>Tizim sizga video va uning audiosini eng yuqori sifatda taqdim etadi.</i>\n\n"
         "▫️▫️▫️▫️▫️▫️▫️▫️▫️▫️▫️▫️▫️",
         reply_markup=kb,
-        parse_mode="Markdown"
+        parse_mode="HTML"
     )
 
 # === 2. RESTART TUGMASI ===
@@ -41,7 +41,7 @@ async def start_cmd(message: types.Message):
 async def restart_btn(message: types.Message):
     await start_cmd(message)
 
-# === 3. AUDIONI AJRATIB OLIB YUBORISH (CALLBACK) ===
+# === 3. AUDIONI AJRATIB OLIB YUBORISH ===
 @dp.callback_query(F.data == "get_audio")
 async def handle_audio(callback: types.CallbackQuery):
     caption = callback.message.caption or ""
@@ -74,21 +74,21 @@ async def handle_audio(callback: types.CallbackQuery):
                     filename="music.mp3",
                     title="music",
                     performer="Bot Yuklovchi",
-                    caption="🎵 **Siz so'ragan audio variant tayyor!** \n\n🎧 _Huzur qilib tinglang!_ ✨",
-                    parse_mode="Markdown"
+                    caption="🎵 <b>Siz so'ragan audio variant tayyor!</b> \n\n🎧 <i>Huzur qilib tinglang!</i> ✨",
+                    parse_mode="HTML"
                 )
                 return
                 
         raise Exception("Audio topilmadi")
     except Exception as e:
         print(f"Audio xatosi: {e}")
-        await callback.message.answer("❌ **Kechirasiz, ushbu videoning audio variantini ajratib olish imkoni bo'lmadi.**", parse_mode="Markdown")
+        await callback.message.answer("❌ <b>Kechirasiz, ushbu videoning audio variantini ajratib olish imkoni bo'lmadi.</b>", parse_mode="HTML")
 
-# === 4. FAQAT INSTAGRAM HAVOLALARINI QABUL QILUVCHI FILTR ===
+# === 4. HAVOLALARNI TUTIB QOLUVCHI ASOSIY QISM ===
 @dp.message(lambda msg: msg.text and "instagram.com" in msg.text)
 async def handle_media(message: types.Message):
     url = clean_url(message.text)
-    status_msg = await message.answer("⏳ `So'rov qabul qilindi. Media yuklanmoqda...`", parse_mode="Markdown")
+    status_msg = await message.answer("⏳ <code>So'rov qabul qilindi. Media yuklanmoqda...</code>", parse_mode="HTML")
     
     ydl_opts = {
         'format': 'best',
@@ -109,16 +109,17 @@ async def handle_media(message: types.Message):
                     [types.InlineKeyboardButton(text="🎵 ⬇️ MUSIQASINI YUKLAB OLISH ⬇️ 🎵", callback_data="get_audio")]
                 ])
                 
+                # HTML formatiga o'tkazilgan caption matni
                 caption_text = (
-                    f"⚡️ **Muvaffaqiyatli yuklandi!** ✅\n\n"
-                    f"🔗 **Havola:** {url}\n\n"
-                    f"👑 **@Obidjon_Musurmonov tizimi**"
+                    f"⚡️ <b>Muvaffaqiyatli yuklandi!</b> ✅\n\n"
+                    f"🔗 <b>Havola:</b> {url}\n\n"
+                    f"👑 <b>@Obidjon_Musurmonov tizimi</b>"
                 )
                 
                 await message.answer_video(
                     video=video_url,
                     caption=caption_text,
-                    parse_mode="Markdown",
+                    parse_mode="HTML",
                     reply_markup=audio_btn
                 )
                 await status_msg.delete()
@@ -128,21 +129,23 @@ async def handle_media(message: types.Message):
                 
     except Exception as e:
         print(f"Yuklash xatosi: {e}")
-        await message.answer(f"❌ **YUKLASHDA XATOLIK YUZ BERDI!**\n\n⚠️ _Tizim xatosi: {str(e)[:50]}_", parse_mode="Markdown")
+        # Xatolik matnini xavfsiz stringga o'giramiz
+        error_msg = str(e)[:50].replace("<", "&lt;").replace(">", "&gt;")
+        await message.answer(f"❌ <b>YUKLASHDA XATOLIK YUZ BERDI!</b>\n\n⚠️ <i>Tizim xatosi: {error_msg}</i>", parse_mode="HTML")
         try:
             await status_msg.delete()
         except:
             pass
 
-# === 5. BOSHQA HAR QANDAY NOTO'G'RI MATNLAR UCHUN (ENG PASDA TURISHI SHART) ===
+# === 5. NOTO'G'RI MATN FILTRI (ENG PASDA TURISHI SHART) ===
 @dp.message()
 async def text_fallback(message: types.Message):
     await message.answer(
         "🚨 ▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬ 🚨\n"
-        "⚠️ *DIQQAT:* `Noto'g'ri buyruq kiritildi!`\n\n"
-        "📥 _Iltimos, faqat to'g'ri va ishlaydigan_ *Instagram* _havolasini (linkini) yuboring!_\n"
+        "⚠️ <b>DIQQAT:</b> <code>Noto'g'ri buyruq kiritildi!</code>\n\n"
+        "📥 <i>Iltimos, faqat to'g'ri va ishlaydigan</i> <b>Instagram</b> <i>havolasini (linkini) yuboring!</i>\n"
         "🚨 ▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬ 🚨",
-        parse_mode="Markdown"
+        parse_mode="HTML"
     )
 
 async def main():
